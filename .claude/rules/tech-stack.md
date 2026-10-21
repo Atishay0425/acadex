@@ -8,6 +8,10 @@ Develop the project **only** with the stack on slide 10 of the presentation ("Pr
 | Backend and data | Node.js with Express, PostgreSQL, Redis (alerts and caching), JWT login |
 | Smart integrations | OCR for image questions, vector search for Smart Notes, email and push notifications |
 
+## Languages
+
+JavaScript only (Node.js on the server, React/Next.js in the browser), plus SQL for PostgreSQL and CSS via Tailwind. No TypeScript, Python, Java, PHP, Go or any other language in new code. Python stays confined to the offline ML pipeline and the legacy Django service.
+
 ## How to apply
 
 - New back-end code is Node.js + Express. Not Django, Flask, FastAPI, Spring or similar. Data goes in PostgreSQL (SQLite is acceptable only as a throwaway local dev fallback), caching and alert queues in Redis, authentication with JWT.
