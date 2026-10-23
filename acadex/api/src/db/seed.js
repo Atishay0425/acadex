@@ -78,6 +78,7 @@ export async function seed(pool, password = process.env.DEMO_PASSWORD || crypto.
       for (const [email, score] of Object.entries(a.scores)) await pool.query('INSERT INTO marks (assessment_id, student_id, score) VALUES ($1, $2, $3)', [aid, ids[email], score])
     }
   }
+  await seedAssignments(pool, ids)
   await seedCommunity(pool, ids)
   return password
 }
@@ -113,4 +114,20 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const pw = await seed(pool)
   console.log(`Seeded demo users (admin@college.edu, neha.verma@college.edu, aarav.sharma@college.edu, ...). Password: ${pw}`)
   await pool.end()
+}
+
+const DAY = 86400000
+async function seedAssignments(pool, ids) {
+  const course = (await pool.query("SELECT id FROM courses WHERE code = 'CE301'")).rows[0]
+  if ((await pool.query('SELECT 1 FROM assignments WHERE course_id = $1', [course.id])).rows.length) return
+  const mk = async (title, description, days, max) => (await pool.query('INSERT INTO assignments (course_id, title, description, due_at, max_marks, created_by) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id',
+    [course.id, title, description, new Date(Date.now() + days * DAY).toISOString(), max, ids['neha.verma@college.edu']])).rows[0].id
+  const lab1 = await mk('Lab 1: Singly linked list', 'Implement insert, delete and reverse. Submit a repository link.', -10, 10)
+  const lab2 = await mk('Lab 2: Stack and queue', 'Implement both with arrays and compare.', -3, 10)
+  await mk('Lab 3: Binary trees', 'Traversals and height. Due next week.', 6, 20)
+  const sub = (aid, email, content, late, score, feedback) => pool.query('INSERT INTO submissions (assignment_id, student_id, content, is_late, score, feedback, graded_at) VALUES ($1, $2, $3, $4, $5, $6, $7)',
+    [aid, ids[email], content, late, score, feedback ?? '', score == null ? null : new Date()])
+  await sub(lab1, 'aarav.sharma@college.edu', 'https://github.com/aarav/ds-lab1', false, 9, 'Clean code. Add a test for reverse.')
+  await sub(lab1, 'diya.patel@college.edu', 'https://github.com/diya/ds-lab1', true, 6, 'Late. Delete misses the head case.')
+  await sub(lab2, 'aarav.sharma@college.edu', 'Arrays vs linked: amortised cost notes attached in repo.', false, null)
 }

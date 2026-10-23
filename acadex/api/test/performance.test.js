@@ -15,6 +15,7 @@ test('/me/performance combines attendance and marks per enrolled course and flag
   assert.deepEqual(res.body[0], {
     course: { id: c.id, code: 'CS101', title: 'Intro', teacher: 'Teacher One' },
     attendancePct: 50, marksPct: 90, classesNeededFor75: 4, weak: true,
+    assignmentsPct: null, assignmentsSubmitted: 0, assignmentsExpected: 0, assignmentsMissing: 0,
   })
   // student2 has no data: nulls, not weak
   const quiet = await ctx.as('student2').get('/me/performance')

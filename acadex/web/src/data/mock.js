@@ -208,3 +208,10 @@ export const courseCatalogue = [
   { id: 2, code: 'CS602', title: 'Compiler Design', department: 'Computer Science', semester: 6, teacher: { id: 2, name: 'Prof. Anil Rao' }, studentCount: 108, enrolled: true },
   { id: 3, code: 'CS603', title: 'Computer Networks', department: 'Computer Science', semester: 6, teacher: { id: 2, name: 'Prof. Anil Rao' }, studentCount: 96, enrolled: false },
 ]
+
+// Offline fallback for the assignments page (shape matches GET /me/assignments)
+export const myAssignments = [
+  { id: 1, title: 'ML Lab 2: Linear regression', course: { id: 1, code: 'CS601', title: 'Machine Learning' }, dueAt: new Date(Date.now() + 3 * 86400000).toISOString(), maxMarks: 10, status: 'pending', submission: null },
+  { id: 2, title: 'Compiler Design: LR parser table', course: { id: 2, code: 'CS602', title: 'Compiler Design' }, dueAt: new Date(Date.now() - 2 * 86400000).toISOString(), maxMarks: 20, status: 'overdue', submission: null },
+  { id: 3, title: 'Networks: Subnetting worksheet', course: { id: 3, code: 'CS603', title: 'Computer Networks' }, dueAt: new Date(Date.now() - 6 * 86400000).toISOString(), maxMarks: 10, status: 'graded', submission: { content: 'Worksheet attached', link: null, isLate: false, score: 8, feedback: 'Good work.' } },
+]

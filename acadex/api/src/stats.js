@@ -27,3 +27,11 @@ export function classesNeeded({ attended, total }, target = ATTENDANCE_TARGET) {
 
 export const isWeak = (attendancePct, marksPct) =>
   (attendancePct != null && attendancePct < ATTENDANCE_TARGET) || (marksPct != null && marksPct < MARKS_WEAK_BELOW)
+
+// Assignments a student is expected to have handed in: past their due date, or already submitted.
+// rows: [{ due_at, submitted }]. Nothing expected yet -> pct null.
+export function assignmentStats(rows, now = new Date()) {
+  const expected = rows.filter((r) => r.submitted || new Date(r.due_at) <= now)
+  const submitted = expected.filter((r) => r.submitted).length
+  return { expected: expected.length, submitted, missing: expected.length - submitted, pct: expected.length ? round1((submitted / expected.length) * 100) : null }
+}

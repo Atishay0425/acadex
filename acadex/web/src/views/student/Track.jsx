@@ -11,7 +11,7 @@ export function PerformanceAnalyzer() {
   const remote = useRemote('/me/performance')
   const online = !remote.offline
   // Shape API rows like the mock subjects so one UI handles both
-  const live = (remote.data || []).map((p) => ({ code: p.course.code, name: p.course.title, faculty: p.course.teacher || 'Unassigned', attendance: p.attendancePct, marks: p.marksPct, need: p.classesNeededFor75, weak: p.weak }))
+  const live = (remote.data || []).map((p) => ({ code: p.course.code, name: p.course.title, faculty: p.course.teacher || 'Unassigned', attendance: p.attendancePct, marks: p.marksPct, need: p.classesNeededFor75, weak: p.weak, assignments: p.assignmentsExpected ? `${p.assignmentsSubmitted}/${p.assignmentsExpected}` : '-', missing: p.assignmentsMissing }))
   const subjects = online ? live : mockSubjects
   const isWeak = (s) => (online ? s.weak : s.marks < 60 || s.attendance < 75)
   const weak = subjects.filter(isWeak)
@@ -21,6 +21,7 @@ export function PerformanceAnalyzer() {
   const tips = online
     ? [
         ...live.filter((s) => s.need > 0).map((s) => `${s.name}: attend the next ${s.need} classes in a row to reach 75% attendance.`),
+        ...live.filter((s) => s.missing > 0).map((s) => `${s.name}: ${s.missing} assignment${s.missing > 1 ? 's are' : ' is'} overdue. Hand ${s.missing > 1 ? 'them' : 'it'} in from Assignments.`),
         ...live.filter((s) => s.marks != null && s.marks < 60).map((s) => `${s.name}: marks are at ${s.marks}%. Ask your teacher or post in the Doubt Desk.`),
         ...(best && !isWeak(best) ? [`${best.name} is your strongest subject at ${best.marks}%.`] : []),
       ]
@@ -57,7 +58,7 @@ export function PerformanceAnalyzer() {
             { key: 'name', label: 'Subject', render: (r) => <div><p className="font-semibold">{r.name}</p><p className="text-xs text-gray-500">{r.faculty}</p></div> },
             { key: 'attendance', label: 'Attendance', render: (r) => cell(r.attendance) },
             { key: 'marks', label: 'Marks', render: (r) => cell(r.marks) },
-            ...(online ? [] : [{ key: 'assignments', label: 'Assignments' }]),
+            { key: 'assignments', label: 'Assignments' },
             { key: 'status', label: 'Status', render: (r) => (isWeak(r) ? <Badge tone="red">Weak</Badge> : <Badge tone="green">On track</Badge>) },
           ]} rows={subjects} />
         </Card>

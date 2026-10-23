@@ -6,7 +6,7 @@ import { signOut } from '../lib/auth'
 import {
   LayoutDashboard, MessageCircleQuestion, NotebookPen, CalendarCheck, LineChart, BellRing, HeartHandshake,
   Compass, Users, MessagesSquare, Lightbulb, LifeBuoy, GraduationCap, Search, Bell, Menu, LogOut, ChevronDown,
-  ShieldAlert, ClipboardList, FolderKanban, Settings, BarChart3, Building2, UserCog, Brain, Inbox, BookOpen, School, Library, CalendarDays, ClipboardCheck, ListChecks,
+  ShieldAlert, ClipboardList, FolderKanban, Settings, BarChart3, Building2, UserCog, Brain, Inbox, BookOpen, School, Library, CalendarDays, ClipboardCheck, ListChecks, FileText,
 } from 'lucide-react'
 import { Avatar, cx } from './ui'
 import { me } from '../data/mock'
@@ -16,6 +16,7 @@ const NAV = {
     { group: null, items: [{ to: '', label: 'Dashboard', icon: LayoutDashboard, end: true }] },
     { group: 'Learn smarter', items: [
       { to: 'courses', label: 'My Courses', icon: BookOpen },
+      { to: 'assignments', label: 'Assignments', icon: FileText },
       { to: 'doubts', label: 'Faculty Doubt Desk', icon: MessageCircleQuestion },
       { to: 'notes', label: 'Smart Notes', icon: NotebookPen },
       { to: 'planner', label: 'Study Planner', icon: CalendarCheck },
@@ -42,6 +43,7 @@ const NAV = {
       { to: 'classes', label: 'My Classes', icon: School },
       { to: 'attendance', label: 'Attendance', icon: CalendarDays },
       { to: 'marks', label: 'Marks', icon: ClipboardCheck },
+      { to: 'assignments', label: 'Assignments', icon: FileText },
       { to: 'doubts', label: 'Doubt Inbox', icon: Inbox },
       { to: 'resources', label: 'Class Resources', icon: NotebookPen },
     ] },
