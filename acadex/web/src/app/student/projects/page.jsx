@@ -1,2 +1,2 @@
-import { ProjectHub } from '../../../views/student/Guidance'
-export default function Page() { return <ProjectHub /> }
+import Projects from '../../../views/student/Projects'
+export default function Page() { return <Projects /> }

@@ -63,6 +63,7 @@ export async function api(path, opts = {}) {
 export function useRemote(path, deps = []) {
   const [state, setState] = useState({ data: null, loading: true, offline: false, error: null })
   const load = useCallback(async () => {
+    if (!path) return setState({ data: null, loading: false, offline: false, error: null }) // nothing to fetch
     if (!session.get()) return setState({ data: null, loading: false, offline: true, error: null })
     try { setState({ data: await api(path), loading: false, offline: false, error: null }) } catch (e) {
       setState({ data: null, loading: false, offline: !(e instanceof ApiError), error: e instanceof ApiError ? e.message : null })

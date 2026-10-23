@@ -83,6 +83,7 @@ export async function seed(pool, password = process.env.DEMO_PASSWORD || crypto.
   await seedTickets(pool, ids)
   await seedCounselling(pool, ids)
   await seedMentorship(pool, ids)
+  await seedProjects(pool, ids)
   await seedCommunity(pool, ids)
   return password
 }
@@ -178,3 +179,14 @@ async function seedMentorship(pool, ids) {
   return q
 }
 
+async function seedProjects(pool, ids) {
+  if ((await pool.query('SELECT 1 FROM projects')).rows.length) return
+  const add = async (owner, mentor, title, description, stack, spots, status, progress) => (await pool.query('INSERT INTO projects (owner_id, mentor_id, title, description, stack, spots, status, progress) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id',
+    [ids[owner], mentor ? ids[mentor] : null, title, description, JSON.stringify(stack), spots, status, progress])).rows[0].id
+  const att = await add('diya.patel@college.edu', 'neha.verma@college.edu', 'Smart Attendance via Face Recognition', 'Mark attendance automatically from classroom camera frames.', ['Python', 'OpenCV', 'Flask'], 2, 'in_progress', 60)
+  await add('kabir.singh@college.edu', 'rahul.iyer@college.edu', 'Campus Lost & Found Portal', 'Report, match and claim lost items across the campus.', ['React', 'Node.js', 'PostgreSQL'], 1, 'in_progress', 35)
+  await add('aarav.sharma@college.edu', 'neha.verma@college.edu', 'AI Study Buddy for Exam Prep', 'Chat with your own notes and get adaptive practice questions.', ['Next.js', 'Express'], 3, 'idea', 0)
+  await add('diya.patel@college.edu', 'rahul.iyer@college.edu', 'Hostel Mess Feedback Analyzer', 'Sentiment dashboard for daily mess feedback.', ['Python', 'NLP'], 0, 'completed', 100)
+  await pool.query('INSERT INTO project_updates (project_id, author_id, kind, body, progress) VALUES ($1, $2, $3, $4, $5)', [att, ids['neha.verma@college.edu'], 'approved', 'Good scope. Start with a small labelled dataset.', null])
+  await pool.query('INSERT INTO project_updates (project_id, author_id, kind, body, progress) VALUES ($1, $2, $3, $4, $5)', [att, ids['diya.patel@college.edu'], 'update', 'Face detection works on test frames; collecting more data.', 60])
+}

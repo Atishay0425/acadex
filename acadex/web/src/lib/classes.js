@@ -17,3 +17,5 @@ export const TICKET_TONE = { open: 'amber', in_progress: 'primary', resolved: 'g
 export const PRIORITY_TONE = { high: 'red', medium: 'amber', low: 'gray' }
 export const SESSION_TONE = { requested: 'amber', confirmed: 'green', completed: 'primary', cancelled: 'gray' }
 export const fmtSlot = (iso) => new Date(iso).toLocaleString([], { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+export const PROJECT_STATUS = { idea: 'Idea', changes_requested: 'Changes requested', in_progress: 'In progress', completed: 'Completed' }
+export const PROJECT_TONE = { idea: 'gray', changes_requested: 'amber', in_progress: 'primary', completed: 'green' }
