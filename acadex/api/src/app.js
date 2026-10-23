@@ -9,6 +9,7 @@ import { marksRouter } from './routes/marks.js'
 import { performanceRouter } from './routes/performance.js'
 import { communityRouter } from './routes/community.js'
 import { assignmentsRouter, myAssignmentsRouter } from './routes/assignments.js'
+import { doubtsRouter } from './routes/doubts.js'
 import { authenticate } from './middleware/auth.js'
 import { errorHandler } from './middleware/errors.js'
 
@@ -29,6 +30,7 @@ export function createApp({ pool, config }) {
   v1.use('/courses/:courseId', auth, marksRouter({ pool }))
   v1.use('/me/assignments', auth, myAssignmentsRouter({ pool }))
   v1.use('/me', auth, performanceRouter({ pool }))
+  v1.use('/doubts', auth, doubtsRouter({ pool }))
   v1.use('/community', auth, communityRouter({ pool, config }))
   app.use('/api/v1', v1)
 

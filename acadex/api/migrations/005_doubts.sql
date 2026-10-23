@@ -1,0 +1,17 @@
+CREATE TABLE doubts (
+  id SERIAL PRIMARY KEY,
+  course_id INTEGER NOT NULL REFERENCES courses (id) ON DELETE CASCADE,
+  student_id INTEGER NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  body TEXT NOT NULL DEFAULT '',
+  answer TEXT NOT NULL DEFAULT '',
+  answered_by INTEGER REFERENCES users (id) ON DELETE SET NULL,
+  answered_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE doubt_upvotes (
+  doubt_id INTEGER NOT NULL REFERENCES doubts (id) ON DELETE CASCADE,
+  user_id INTEGER NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+  PRIMARY KEY (doubt_id, user_id)
+)

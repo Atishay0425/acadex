@@ -1,2 +1,2 @@
-import { DoubtInbox } from '../../../views/teacher/Teacher'
-export default function Page() { return <DoubtInbox /> }
+import Doubts from '../../../views/teacher/Doubts'
+export default function Page() { return <Doubts /> }

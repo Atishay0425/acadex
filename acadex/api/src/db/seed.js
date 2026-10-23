@@ -79,6 +79,7 @@ export async function seed(pool, password = process.env.DEMO_PASSWORD || crypto.
     }
   }
   await seedAssignments(pool, ids)
+  await seedDoubts(pool, ids)
   await seedCommunity(pool, ids)
   return password
 }
@@ -131,3 +132,18 @@ async function seedAssignments(pool, ids) {
   await sub(lab1, 'diya.patel@college.edu', 'https://github.com/diya/ds-lab1', true, 6, 'Late. Delete misses the head case.')
   await sub(lab2, 'aarav.sharma@college.edu', 'Arrays vs linked: amortised cost notes attached in repo.', false, null)
 }
+
+async function seedDoubts(pool, ids) {
+  if ((await pool.query('SELECT 1 FROM doubts')).rows.length) return
+  const cid = async (code) => (await pool.query('SELECT id FROM courses WHERE code = $1', [code])).rows[0].id
+  const add = async (code, by, title, body, answer) => (await pool.query('INSERT INTO doubts (course_id, student_id, title, body, answer, answered_by, answered_at) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id',
+    [await cid(code), ids[by], title, body, answer ?? '', answer ? ids['neha.verma@college.edu'] : null, answer ? new Date() : null])).rows[0].id
+  const d1 = await add('CE301', 'diya.patel@college.edu', 'When should I use a doubly linked list over a singly linked one?', 'Both worked for my lab. Is the extra pointer ever worth it?', 'Use doubly linked when you delete a node you already hold a reference to, or traverse backwards. The extra pointer costs memory but makes those O(1).')
+  await add('CE301', 'aarav.sharma@college.edu', 'Is the height of a single-node tree 0 or 1?', 'My lab 3 stub returns 1 but the textbook says 0.')
+  await add('CE302', 'kabir.singh@college.edu', 'Difference between 3NF and BCNF with an example?', 'I keep mixing these up before the quiz.')
+  await pool.query('INSERT INTO doubt_upvotes (doubt_id, user_id) VALUES ($1, $2)', [d1, ids['aarav.sharma@college.edu']])
+}
+
+
+
+
