@@ -15,6 +15,7 @@ import { plannerRouter } from './routes/planner.js'
 import { riskRouter } from './routes/risk.js'
 import { helpdeskRouter } from './routes/helpdesk.js'
 import { counsellingRouter } from './routes/counselling.js'
+import { mentorshipRouter } from './routes/mentorship.js'
 import { authenticate } from './middleware/auth.js'
 import { errorHandler } from './middleware/errors.js'
 
@@ -41,6 +42,7 @@ export function createApp({ pool, config }) {
   v1.use('/risk', auth, riskRouter({ pool }))
   v1.use('/helpdesk', auth, helpdeskRouter({ pool, config }))
   v1.use('/counselling', auth, counsellingRouter({ pool }))
+  v1.use('/mentorship', auth, mentorshipRouter({ pool }))
   v1.use('/community', auth, communityRouter({ pool, config }))
   app.use('/api/v1', v1)
 

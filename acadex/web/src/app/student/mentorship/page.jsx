@@ -1,2 +1,2 @@
-import { Mentorship } from '../../../views/student/Guidance'
-export default function Page() { return <Mentorship /> }
+import Mentor from '../../../views/student/Mentor'
+export default function Page() { return <Mentor /> }

@@ -1,0 +1,21 @@
+CREATE TABLE mentor_profiles (
+  user_id INTEGER PRIMARY KEY REFERENCES users (id) ON DELETE CASCADE,
+  headline TEXT NOT NULL,
+  year_label TEXT NOT NULL DEFAULT '',
+  topics TEXT NOT NULL DEFAULT '[]',
+  bio TEXT NOT NULL DEFAULT '',
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE mentor_questions (
+  id SERIAL PRIMARY KEY,
+  asker_id INTEGER NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+  mentor_id INTEGER NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+  text TEXT NOT NULL,
+  is_anonymous BOOLEAN NOT NULL DEFAULT FALSE,
+  answer TEXT NOT NULL DEFAULT '',
+  answered_at TIMESTAMPTZ,
+  rating SMALLINT CHECK (rating BETWEEN 1 AND 5),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+)

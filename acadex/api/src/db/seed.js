@@ -82,6 +82,7 @@ export async function seed(pool, password = process.env.DEMO_PASSWORD || crypto.
   await seedDoubts(pool, ids)
   await seedTickets(pool, ids)
   await seedCounselling(pool, ids)
+  await seedMentorship(pool, ids)
   await seedCommunity(pool, ids)
   return password
 }
@@ -167,4 +168,13 @@ async function seedCounselling(pool, ids) {
   await pool.query("INSERT INTO counselling_sessions (student_id, counsellor_id, slot_id, starts_at, type, topic, status, follow_up) VALUES ($1, $2, $3, $4, 'academic', 'Low attendance in Data Structures', 'confirmed', 'Bring your attendance sheet and the lab schedule.')", [ids['aarav.sharma@college.edu'], counsellor, first.id, first.starts_at])
 }
 
+async function seedMentorship(pool, ids) {
+  if ((await pool.query('SELECT 1 FROM mentor_profiles')).rows.length) return
+  const add = (email, headline, year, topics, bio) => pool.query('INSERT INTO mentor_profiles (user_id, headline, year_label, topics, bio) VALUES ($1, $2, $3, $4, $5)', [ids[email], headline, year, JSON.stringify(topics), bio])
+  await add('kabir.singh@college.edu', 'Intern at Amazon', 'Final Year · CSE', ['Internships', 'DSA', 'Projects'], 'Ask me about internship applications and daily DSA practice.')
+  await add('diya.patel@college.edu', 'MS applicant (USA)', 'Final Year · CSE', ['Higher studies', 'GRE', 'Research'], 'Happy to share my GRE plan and how I picked universities.')
+  const q = (await pool.query("INSERT INTO mentor_questions (asker_id, mentor_id, text, is_anonymous, answer, answered_at, rating) VALUES ($1, $2, 'How should I prepare for a software internship application?', TRUE, 'Build two small projects, practise 2 DSA problems daily, and apply early.', now(), 5) RETURNING id", [ids['aarav.sharma@college.edu'], ids['kabir.singh@college.edu']])).rows[0]
+  await pool.query("INSERT INTO mentor_questions (asker_id, mentor_id, text, is_anonymous) VALUES ($1, $2, 'Is the GRE necessary for every MS program?', FALSE)", [ids['aarav.sharma@college.edu'], ids['diya.patel@college.edu']])
+  return q
+}
 
