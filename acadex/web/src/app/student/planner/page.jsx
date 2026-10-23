@@ -1,2 +1,2 @@
-import { StudyPlanner } from '../../../views/student/Learn'
-export default function Page() { return <StudyPlanner /> }
+import Planner from '../../../views/student/Planner'
+export default function Page() { return <Planner /> }
