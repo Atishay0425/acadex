@@ -1,2 +1,2 @@
-import { HelpCenter } from '../../../views/student/Track'
-export default function Page() { return <HelpCenter /> }
+import Help from '../../../views/student/Help'
+export default function Page() { return <Help /> }

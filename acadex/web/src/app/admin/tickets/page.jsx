@@ -1,2 +1,2 @@
-import { TicketRouting } from '../../../views/admin/Admin'
-export default function Page() { return <TicketRouting /> }
+import Tickets from '../../../views/admin/Tickets'
+export default function Page() { return <Tickets /> }

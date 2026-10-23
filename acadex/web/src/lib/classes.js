@@ -12,3 +12,6 @@ export const ago = (iso) => {
   const m = Math.max(1, Math.round((Date.now() - new Date(iso)) / 60000))
   return m < 60 ? `${m}m ago` : m < 1440 ? `${Math.round(m / 60)}h ago` : `${Math.round(m / 1440)}d ago`
 }
+export const TICKET_STATUS = { open: 'Open', in_progress: 'In progress', resolved: 'Resolved' }
+export const TICKET_TONE = { open: 'amber', in_progress: 'primary', resolved: 'green' }
+export const PRIORITY_TONE = { high: 'red', medium: 'amber', low: 'gray' }

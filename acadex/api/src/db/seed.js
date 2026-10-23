@@ -80,6 +80,7 @@ export async function seed(pool, password = process.env.DEMO_PASSWORD || crypto.
   }
   await seedAssignments(pool, ids)
   await seedDoubts(pool, ids)
+  await seedTickets(pool, ids)
   await seedCommunity(pool, ids)
   return password
 }
@@ -144,6 +145,15 @@ async function seedDoubts(pool, ids) {
   await pool.query('INSERT INTO doubt_upvotes (doubt_id, user_id) VALUES ($1, $2)', [d1, ids['aarav.sharma@college.edu']])
 }
 
+async function seedTickets(pool, ids) {
+  if ((await pool.query('SELECT 1 FROM tickets')).rows.length) return
+  const add = async (email, category, department, title, details, priority, status) => (await pool.query('INSERT INTO tickets (student_id, category, department, title, details, priority, status, resolved_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id',
+    [ids[email], category, department, title, details, priority, status, status === 'resolved' ? new Date() : null])).rows[0].id
+  const t1 = await add('aarav.sharma@college.edu', 'fees', 'Accounts & Fees', 'Fee receipt not showing for Sem 5', 'The receipt page is empty after payment.', 'high', 'in_progress')
+  await add('diya.patel@college.edu', 'hostel', 'Hostel', 'Room heater not working', 'Room 204, since Monday.', 'medium', 'open')
+  await add('kabir.singh@college.edu', 'library', 'Library', 'Need extension on borrowed book', '', 'medium', 'resolved')
+  await pool.query('INSERT INTO ticket_messages (ticket_id, author_id, body) VALUES ($1, $2, $3)', [t1, ids['admin@college.edu'], 'Raised with the accounts office. They will re-issue the receipt within a day.'])
+}
 
 
 

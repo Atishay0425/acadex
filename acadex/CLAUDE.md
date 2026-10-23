@@ -3,7 +3,7 @@
 Smart student management platform: Student, Teacher and Admin portals. Monorepo:
 
 - `web/`: Next.js 14 (App Router, JavaScript) + Tailwind, copied from `../acadex-frontend` (the prototype).
-- `api/`: Express + PostgreSQL + JWT REST API under `/api/v1`. Modules so far: auth, users, courses and enrolment, attendance, marks, assignments and submissions, doubts, smart notes, study planner, early warning with interventions (plus `GET /me/performance`, `GET /me/assignments`), community (rooms, posts, answers, votes, moderation). Course rooms are created and synced from `src/community/rooms.js`, called by the course routes.
+- `api/`: Express + PostgreSQL + JWT REST API under `/api/v1`. Modules so far: auth, users, courses and enrolment, attendance, marks, assignments and submissions, doubts, smart notes, study planner, early warning with interventions, help center tickets (plus `GET /me/performance`, `GET /me/assignments`), community (rooms, posts, answers, votes, moderation). Course rooms are created and synced from `src/community/rooms.js`, called by the course routes.
 - `docs/`: notes and plans.
 
 `../acadex-frontend`, `../acadex-backend` (Django community service) and the `.pptx` decks are the earlier prototype and reference material.
