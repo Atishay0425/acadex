@@ -1,2 +1,2 @@
-import { RiskInterventions } from '../../../views/admin/Admin'
-export default function Page() { return <RiskInterventions /> }
+import RiskLive from '../../../views/admin/RiskLive'
+export default function Page() { return <RiskLive /> }

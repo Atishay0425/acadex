@@ -6,3 +6,9 @@ export const fmtDue = (iso) => new Date(iso).toLocaleString([], { day: 'numeric'
 // <input type="datetime-local"> value for N days from now, and back to an ISO string for the API.
 export const inDays = (n) => { const d = new Date(Date.now() + n * 86400000); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 16) }
 export const toIso = (local) => new Date(local).toISOString()
+export const ACTION_LABEL = { mentor_call: 'Mentor call', reminder: 'Reminder', counselling_referral: 'Counselling referral', note: 'Note' }
+export const STATUS_LABEL = { sent: 'Sent', responded: 'Student responded', closed: 'Closed' }
+export const ago = (iso) => {
+  const m = Math.max(1, Math.round((Date.now() - new Date(iso)) / 60000))
+  return m < 60 ? `${m}m ago` : m < 1440 ? `${Math.round(m / 60)}h ago` : `${Math.round(m / 1440)}d ago`
+}

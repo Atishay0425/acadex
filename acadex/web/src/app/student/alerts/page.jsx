@@ -1,2 +1,2 @@
-import { EarlyWarning } from '../../../views/student/Track'
-export default function Page() { return <EarlyWarning /> }
+import Warning from '../../../views/student/Warning'
+export default function Page() { return <Warning /> }
