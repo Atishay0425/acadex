@@ -1,2 +1,2 @@
-import { Counselling } from '../../../views/student/Guidance'
-export default function Page() { return <Counselling /> }
+import Counsel from '../../../views/student/Counsel'
+export default function Page() { return <Counsel /> }

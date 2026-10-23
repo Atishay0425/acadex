@@ -14,7 +14,7 @@ const loginBody = z.object({ email, password: z.string().min(1).max(128) })
 const registerBody = z.object({ email, password, name: z.string().trim().min(2).max(100), department: z.string().trim().max(100).optional() })
 const refreshBody = z.object({ refreshToken: z.string().min(1) })
 
-export const publicUser = (u) => ({ id: u.id, email: u.email, name: u.name, role: u.role, department: u.department })
+export const publicUser = (u) => ({ id: u.id, email: u.email, name: u.name, role: u.role, department: u.department, isCounsellor: Boolean(u.is_counsellor) })
 const sha256 = (s) => crypto.createHash('sha256').update(s).digest('hex')
 // Compared against when the email is unknown so a miss costs the same time as a wrong password.
 const DUMMY_HASH = bcrypt.hashSync('not-a-real-password', 10)

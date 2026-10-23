@@ -6,7 +6,7 @@ import { signOut } from '../lib/auth'
 import {
   LayoutDashboard, MessageCircleQuestion, NotebookPen, CalendarCheck, LineChart, BellRing, HeartHandshake,
   Compass, Users, MessagesSquare, Lightbulb, LifeBuoy, GraduationCap, Search, Bell, Menu, LogOut, ChevronDown,
-  ShieldAlert, ClipboardList, FolderKanban, Settings, BarChart3, Building2, UserCog, Brain, Inbox, BookOpen, School, Library, CalendarDays, ClipboardCheck, ListChecks, FileText,
+  ShieldAlert, ClipboardList, FolderKanban, Settings, BarChart3, Building2, UserCog, Brain, Inbox, BookOpen, School, Library, CalendarDays, ClipboardCheck, ListChecks, FileText, HeartPulse,
 } from 'lucide-react'
 import { Avatar, cx } from './ui'
 import { me } from '../data/mock'
@@ -51,6 +51,7 @@ const NAV = {
       { to: 'students', label: 'Class Performance', icon: BarChart3 },
       { to: 'at-risk', label: 'Early Warning', icon: ShieldAlert },
       { to: 'mentees', label: 'Mentees & Counselling', icon: HeartHandshake },
+      { to: 'counselling', label: 'Counsellor Desk', icon: HeartPulse },
     ] },
     { group: 'Projects', items: [{ to: 'projects', label: 'Project Reviews', icon: FolderKanban }] },
   ],

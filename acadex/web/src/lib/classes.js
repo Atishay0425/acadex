@@ -15,3 +15,5 @@ export const ago = (iso) => {
 export const TICKET_STATUS = { open: 'Open', in_progress: 'In progress', resolved: 'Resolved' }
 export const TICKET_TONE = { open: 'amber', in_progress: 'primary', resolved: 'green' }
 export const PRIORITY_TONE = { high: 'red', medium: 'amber', low: 'gray' }
+export const SESSION_TONE = { requested: 'amber', confirmed: 'green', completed: 'primary', cancelled: 'gray' }
+export const fmtSlot = (iso) => new Date(iso).toLocaleString([], { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })

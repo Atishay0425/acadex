@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import bcrypt from 'bcryptjs'
 import { z } from 'zod'
-import { notFound } from '../errors.js'
+import { HttpError, notFound } from '../errors.js'
 import { wrap } from '../middleware/errors.js'
 import { requireRole } from '../middleware/auth.js'
 import { publicUser } from './auth.js'
@@ -19,6 +19,7 @@ const patchBody = z.object({
   department: z.string().trim().max(100).nullable(),
   role: roleEnum,
   isActive: z.boolean(),
+  isCounsellor: z.boolean(),
 }).partial().refine((b) => Object.keys(b).length > 0, 'Nothing to update')
 
 export function usersRouter({ pool }) {
@@ -49,7 +50,11 @@ export function usersRouter({ pool }) {
   r.patch('/:id', requireRole('admin'), wrap(async (req, res) => {
     const id = z.coerce.number().int().positive().parse(req.params.id)
     const b = patchBody.parse(req.body)
-    const cols = { name: 'name', department: 'department', role: 'role', isActive: 'is_active' }
+    const cols = { name: 'name', department: 'department', role: 'role', isActive: 'is_active', isCounsellor: 'is_counsellor' }
+    const cur = (await pool.query('SELECT role FROM users WHERE id = $1', [id])).rows[0]
+    if (!cur) throw notFound('User not found')
+    if (b.isCounsellor && (b.role ?? cur.role) !== 'teacher') throw new HttpError(400, 'Only teachers can be counsellors')
+    if (b.role && b.role !== 'teacher') b.isCounsellor = false
     const sets = Object.keys(b).map((k, i) => `${cols[k]} = $${i + 2}`)
     const { rows } = await pool.query(`UPDATE users SET ${sets.join(', ')} WHERE id = $1 RETURNING *`, [id, ...Object.values(b)])
     if (!rows[0]) throw notFound('User not found')

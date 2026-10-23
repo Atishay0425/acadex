@@ -81,6 +81,7 @@ export async function seed(pool, password = process.env.DEMO_PASSWORD || crypto.
   await seedAssignments(pool, ids)
   await seedDoubts(pool, ids)
   await seedTickets(pool, ids)
+  await seedCounselling(pool, ids)
   await seedCommunity(pool, ids)
   return password
 }
@@ -155,5 +156,15 @@ async function seedTickets(pool, ids) {
   await pool.query('INSERT INTO ticket_messages (ticket_id, author_id, body) VALUES ($1, $2, $3)', [t1, ids['admin@college.edu'], 'Raised with the accounts office. They will re-issue the receipt within a day.'])
 }
 
+async function seedCounselling(pool, ids) {
+  const counsellor = ids['rahul.iyer@college.edu']
+  await pool.query('UPDATE users SET is_counsellor = TRUE WHERE id = $1', [counsellor])
+  if ((await pool.query('SELECT 1 FROM counselling_slots')).rows.length) return
+  const at = (days, hour) => { const d = new Date(Date.now() + days * 86400000); d.setUTCHours(hour, 0, 0, 0); return d.toISOString() }
+  const slot = async (when) => (await pool.query('INSERT INTO counselling_slots (counsellor_id, starts_at) VALUES ($1, $2) RETURNING id, starts_at', [counsellor, when])).rows[0]
+  const first = await slot(at(1, 9))
+  await slot(at(2, 9)); await slot(at(3, 11))
+  await pool.query("INSERT INTO counselling_sessions (student_id, counsellor_id, slot_id, starts_at, type, topic, status, follow_up) VALUES ($1, $2, $3, $4, 'academic', 'Low attendance in Data Structures', 'confirmed', 'Bring your attendance sheet and the lab schedule.')", [ids['aarav.sharma@college.edu'], counsellor, first.id, first.starts_at])
+}
 
 
