@@ -1,2 +1,2 @@
-import { SmartNotes } from '../../../views/student/Learn'
-export default function Page() { return <SmartNotes /> }
+import Notes from '../../../views/student/Notes'
+export default function Page() { return <Notes /> }
