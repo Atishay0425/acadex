@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { api } from '../../lib/api'
+import { api, session, ApiError } from '../../lib/acadex'
 import { Users, ShieldAlert, LifeBuoy, Activity, Brain, BarChart3, ClipboardList, UserCog, Building2, Settings, CheckCircle2, ArrowUpRight, Plus, Flag, Trash2, RefreshCw } from 'lucide-react'
 import { AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, LineChart, Line } from 'recharts'
 import { PageHeader, Card, Stat, Badge, Table, Progress, Tabs, Modal, Field, Avatar, useToast, ChartFrame, CartesianGrid, XAxis, YAxis, Tooltip, Legend, axisProps, chartColors, riskTone, statusTone } from '../../components/ui'
@@ -132,17 +132,18 @@ export function Moderation() {
   const [toast, node] = useToast()
   const load = async () => {
     try {
-      const [f, st] = await Promise.all([api('/community/flags/?status=open'), api('/community/stats/')])
-      setFlags(f.results); setStats(st); setOnline(true)
-    } catch {
+      const [f, st] = await Promise.all([api('/community/flags?status=open'), api('/community/stats')])
+      setFlags(f); setStats(st); setOnline(true)
+    } catch (e) {
+      if (session.get() && e instanceof ApiError) { setFlags([]); return toast(e.message) } // real API answered: not an outage
       setOnline(false)
-      setFlags(posts.slice(1, 3).map((p, i) => ({ id: p.id, reporter: { full_name: 'Student' }, reason: 'spam', status: 'open', created_at: new Date().toISOString(), target: { type: 'question', id: p.id, text: p.text } })))
+      setFlags(posts.slice(1, 3).map((p) => ({ id: p.id, type: 'post', reporter: { name: 'Student' }, reason: 'spam', status: 'open', createdAt: new Date().toISOString(), target: { type: 'post', id: p.id, text: p.text } })))
     }
   }
   useEffect(() => { load() }, [])
   const resolve = async (f, decision) => {
     if (!online) { setFlags(flags.filter((x) => x.id !== f.id)); return toast('Demo only: start the API to moderate for real') }
-    try { await api(`/community/flags/${f.id}/resolve/`, { method: 'POST', body: { decision } }); toast(decision === 'remove' ? 'Content removed' : 'Report dismissed'); load() }
+    try { await api(`/community/flags/${f.type}/${f.id}/resolve`, { method: 'POST', body: { decision } }); toast(decision === 'remove' ? 'Content removed' : 'Report dismissed'); load() }
     catch { toast('Could not resolve (admin/teacher login needed)') }
   }
   return (
@@ -151,10 +152,10 @@ export function Moderation() {
         actions={!online && <Badge tone="amber">Demo data · API offline</Badge>} />
       {stats && (
         <div className="mb-5 grid gap-4 sm:grid-cols-4">
-          <Stat label="Posts" value={stats.posts_total} hint={`${stats.posts_last_7_days} this week`} icon={ClipboardList} />
+          <Stat label="Posts" value={stats.postsTotal} hint={`${stats.postsLast7Days} this week`} icon={ClipboardList} />
           <Stat label="Solved" value={stats.solved} icon={CheckCircle2} tone="green" />
           <Stat label="Unanswered" value={stats.unanswered} icon={Activity} tone="amber" />
-          <Stat label="Open reports" value={stats.open_flags} icon={Flag} tone="secondary" />
+          <Stat label="Open reports" value={stats.openFlags} icon={Flag} tone="secondary" />
         </div>
       )}
       <Card title="Open reports" pad={false}>
@@ -162,7 +163,7 @@ export function Moderation() {
           <Table rows={flags || []} columns={[
             { key: 'target', label: 'Reported content', render: (r) => <div><p className="line-clamp-1 max-w-md font-semibold">{r.target.text}</p><p className="text-xs text-gray-500">{r.target.type} #{r.target.id}</p></div> },
             { key: 'reason', label: 'Reason', render: (r) => <Badge tone="red"><Flag size={11} className="mr-1" />{r.reason}</Badge> },
-            { key: 'reporter', label: 'Reported by', render: (r) => r.reporter.full_name },
+            { key: 'reporter', label: 'Reported by', render: (r) => r.reporter.name },
             { key: 'a', label: '', render: (r) => <div className="flex gap-2"><button className="btn-ghost py-1" onClick={() => resolve(r, 'dismiss')}>Dismiss</button><button className="btn-ghost py-1 text-secondary" onClick={() => resolve(r, 'remove')}><Trash2 size={14} /> Remove</button></div> },
           ]} />
         )}

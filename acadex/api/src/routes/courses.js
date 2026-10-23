@@ -3,11 +3,12 @@ import { z } from 'zod'
 import { HttpError, forbidden, notFound } from '../errors.js'
 import { wrap } from '../middleware/errors.js'
 import { requireRole } from '../middleware/auth.js'
+import { syncCourseRoom, joinCourseRoom, leaveCourseRoom } from '../community/rooms.js'
 import { COURSE_SELECT as SELECT, loadCourse, assertManage } from '../courseAccess.js'
 
 const id = z.coerce.number().int().positive()
 const courseBody = z.object({
-  code: z.string().trim().toUpperCase().min(2).max(20),
+  code: z.string().trim().toUpperCase().regex(/^[A-Z0-9][A-Z0-9-]{1,19}$/, 'Use 2-20 letters, digits or dashes, e.g. CS101'),
   title: z.string().trim().min(2).max(150),
   department: z.string().trim().max(100).nullable().optional(),
   semester: z.number().int().min(1).max(12).nullable().optional(),
@@ -61,6 +62,7 @@ export function coursesRouter({ pool }) {
     const { rows } = await pool.query(
       'INSERT INTO courses (code, title, department, semester, description, teacher_id) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id',
       [b.code, b.title, b.department ?? null, b.semester ?? null, b.description ?? null, teacherId])
+    await syncCourseRoom(pool, rows[0].id)
     res.status(201).json(shape(await load(rows[0].id), new Map()))
   }))
 
@@ -86,6 +88,7 @@ export function coursesRouter({ pool }) {
     if (keys.length) {
       await pool.query(`UPDATE courses SET ${keys.map((k, i) => `${cols[k]} = $${i + 2}`).join(', ')} WHERE id = $1`, [c.id, ...keys.map((k) => b[k])])
     }
+    if (keys.length) await syncCourseRoom(pool, c.id)
     res.json(shape(await load(c.id), await counts()))
   }))
 
@@ -101,12 +104,14 @@ export function coursesRouter({ pool }) {
     const c = await load(id.parse(req.params.courseId))
     const dup = await pool.query('SELECT 1 FROM enrollments WHERE course_id = $1 AND student_id = $2', [c.id, req.user.id])
     if (!dup.rows.length) await pool.query('INSERT INTO enrollments (course_id, student_id) VALUES ($1, $2)', [c.id, req.user.id])
+    await joinCourseRoom(pool, c.id, req.user.id)
     res.status(dup.rows.length ? 200 : 201).json(shape(c, await counts(), new Set([c.id])))
   }))
 
   r.delete('/:courseId/enroll', requireRole('student'), wrap(async (req, res) => {
     const c = await load(id.parse(req.params.courseId))
     await pool.query('DELETE FROM enrollments WHERE course_id = $1 AND student_id = $2', [c.id, req.user.id])
+    await leaveCourseRoom(pool, c.id, req.user.id)
     res.status(204).end()
   }))
 
@@ -127,13 +132,16 @@ export function coursesRouter({ pool }) {
     if (!s || s.role !== 'student') throw new HttpError(400, 'studentId must be a student account')
     const dup = await pool.query('SELECT 1 FROM enrollments WHERE course_id = $1 AND student_id = $2', [c.id, studentId])
     if (!dup.rows.length) await pool.query('INSERT INTO enrollments (course_id, student_id) VALUES ($1, $2)', [c.id, studentId])
+    await joinCourseRoom(pool, c.id, studentId)
     res.status(dup.rows.length ? 200 : 201).json({ courseId: c.id, studentId })
   }))
 
   r.delete('/:courseId/students/:studentId', requireRole('teacher', 'admin'), wrap(async (req, res) => {
     const c = await load(id.parse(req.params.courseId))
     assertManage(req.user, c)
-    await pool.query('DELETE FROM enrollments WHERE course_id = $1 AND student_id = $2', [c.id, id.parse(req.params.studentId)])
+    const sid = id.parse(req.params.studentId)
+    await pool.query('DELETE FROM enrollments WHERE course_id = $1 AND student_id = $2', [c.id, sid])
+    await leaveCourseRoom(pool, c.id, sid)
     res.status(204).end()
   }))
 

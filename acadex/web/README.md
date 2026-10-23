@@ -1,21 +1,16 @@
-# Acadex front end
+# Acadex web
 
-Next.js 14 (React) + Tailwind CSS, as in the project's tech stack slide. Role-based dashboards for Student, Teacher and Admin.
+Next.js 14 (App Router) + Tailwind. Role-based portals for Student, Teacher and Admin. Talks to the Express API in `../api`.
 
 ```bash
 npm install
 npm run dev      # http://localhost:3000
+npm run build    # the only check
 ```
 
-Pick a role on the login page (demo only, no real auth).
+Sign in with a seeded account (see `../README.md`). If the API is not running, pages that use it fall back to demo data and show a "Demo data · API offline" badge.
 
-- `src/app/<role>/...` routes, `src/views/<role>/...` page components, `src/components` shared UI and shell
-- `src/data/mock.js` mock data. `src/lib/api.js` is the client for the planned Node/Express + PostgreSQL API.
-- `src/middleware.js` role guard (cookie now, JWT claim later)
-
-## Student Community uses the real API
-
-Start the backend (`../acadex-backend`, see its README), then log in on the front end. If the API is offline the
-page falls back to demo data and shows a badge. Set `NEXT_PUBLIC_API_URL` to point somewhere other than `http://localhost:8000/api/v1`.
-
-To log in to the real API, create `.env.local` with `NEXT_PUBLIC_DEMO_PASSWORD=<the password you used for `seed_demo`>` (it is gitignored). Without it the app runs on demo data.
+- `src/app/<role>/...` routes are one-line wrappers; the pages live in `src/views/<role>/`. `src/components` holds the shell and shared UI.
+- `src/lib/acadex.js` is the only API client (`NEXT_PUBLIC_ACADEX_API_URL`, default `http://localhost:4000/api/v1`).
+- `src/data/mock.js` is the offline fallback and the data for pages not connected yet.
+- `src/middleware.js` is a cosmetic role guard (an unsigned cookie). The API enforces real permissions from the JWT.

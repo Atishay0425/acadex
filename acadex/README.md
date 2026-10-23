@@ -17,6 +17,7 @@ If the API is not running, the portals fall back to demo data.
 - Courses: create, edit, delete, assign teacher (admin), enrol/drop (student), roster management (course teacher or admin).
 - Attendance: teachers record a session per class date (present / late / absent / excused), edit or delete past sessions; students see their own record and how many classes they need to reach 75%.
 - Marks: teachers create assessments (quiz, assignment, midterm, endterm, practical) and enter scores; students see their own scores and overall %.
+- Student Community (ported from the Django service): rooms, posts, answers, comments, votes, reports and teacher moderation under `/api/v1/community`. Every course gets a members-only room (teacher plus enrolled students, kept in sync with enrolment). File attachments, notifications and full-text search are not ported yet.
 - Web: real login, My Courses / My Classes / Courses, Attendance and Marks (teacher), Attendance & Marks (student), plus live Performance Analyzer (student) and Class Performance (teacher). Every other page is still mock data.
 
 Percentages: attendance counts present and late, ignores excused; marks are total score over total maximum of graded work. "Weak" means attendance under 75% or marks under 60%. All of this lives in `api/src/stats.js`.

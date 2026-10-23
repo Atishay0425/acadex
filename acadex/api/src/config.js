@@ -13,5 +13,7 @@ export function loadConfig(env = process.env) {
     refreshDays: Number(env.REFRESH_TOKEN_DAYS) || 7,
     corsOrigins: (env.CORS_ORIGINS || 'http://localhost:3000,http://127.0.0.1:3000').split(','),
     rateLimit: env.RATE_LIMIT !== 'off',
+    // A post or answer is hidden once it has this many open reports.
+    flagHideThreshold: Number(env.FLAG_HIDE_THRESHOLD) || 3,
   }
 }

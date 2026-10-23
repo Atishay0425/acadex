@@ -7,6 +7,7 @@ import { coursesRouter } from './routes/courses.js'
 import { attendanceRouter } from './routes/attendance.js'
 import { marksRouter } from './routes/marks.js'
 import { performanceRouter } from './routes/performance.js'
+import { communityRouter } from './routes/community.js'
 import { authenticate } from './middleware/auth.js'
 import { errorHandler } from './middleware/errors.js'
 
@@ -25,6 +26,7 @@ export function createApp({ pool, config }) {
   v1.use('/courses/:courseId/attendance', auth, attendanceRouter({ pool }))
   v1.use('/courses/:courseId', auth, marksRouter({ pool }))
   v1.use('/me', auth, performanceRouter({ pool }))
+  v1.use('/community', auth, communityRouter({ pool, config }))
   app.use('/api/v1', v1)
 
   app.use((_req, res) => res.status(404).json({ error: 'Not found' }))

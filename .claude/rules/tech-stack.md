@@ -19,6 +19,6 @@ JavaScript only (Node.js on the server, React/Next.js in the browser), plus SQL 
 - Small helper libraries inside that stack (charts, icons, date handling) are fine; a new database, message broker, framework or language is not. If a feature seems to need one, stop and ask first.
 - Machine-learning work (the risk model, SHAP) is a separate offline pipeline described in the presentation; keep it out of the web runtime and expose results to the app through the Express API.
 
-## Known exception
+## Legacy Django service
 
-`acadex-backend/` is a Django service adapted from MU-CONNECT for the Student Community module. It predates this rule and does not follow the stack. Do not add new modules or features to it; when asked to work on the community back end, propose porting it to Express + PostgreSQL first.
+`acadex-backend/` is the Django service the Student Community module was adapted from. That module now lives in Express + PostgreSQL (`acadex/api`, `/api/v1/community`). The Django folder is reference only: do not extend it or point new code at it.

@@ -4,7 +4,7 @@ import request from 'supertest'
 import { createApp } from '../src/app.js'
 import { migrate } from '../src/db/migrate.js'
 
-const config = { jwtSecret: 'test-secret', accessTtl: '15m', refreshDays: 7, corsOrigins: ['http://localhost:3000'], rateLimit: false }
+const config = { jwtSecret: 'test-secret', accessTtl: '15m', refreshDays: 7, corsOrigins: ['http://localhost:3000'], rateLimit: false, flagHideThreshold: 2 }
 
 // Fresh in-memory Postgres per test file: real SQL, real constraints, no server needed.
 export async function setup() {
@@ -21,7 +21,10 @@ export async function setup() {
     student: await mk('student@t.edu', 'Student One', 'student'),
     student2: await mk('student2@t.edu', 'Student Two', 'student'),
   }
-  const app = createApp({ pool, config })
+  // Counts every query the app runs, so tests can assert a list does not issue per-row queries.
+  let queries = 0
+  const counted = { query: (...a) => { queries++; return pool.query(...a) }, connect: () => pool.connect() }
+  const app = createApp({ pool: counted, config })
   const tokens = {}
   const login = async (key, email) => { tokens[key] = (await request(app).post('/api/v1/auth/login').send({ email, password: 'password123' })).body.accessToken }
   await login('admin', 'admin@t.edu'); await login('teacher', 'teacher@t.edu'); await login('teacher2', 'teacher2@t.edu')
@@ -33,7 +36,7 @@ export async function setup() {
     patch: (u, b) => request(app).patch(`/api/v1${u}`).set('Authorization', `Bearer ${tokens[key]}`).send(b),
     del: (u) => request(app).delete(`/api/v1${u}`).set('Authorization', `Bearer ${tokens[key]}`),
   })
-  return { app, pool, ids, as, request: (m, u, b) => request(app)[m](`/api/v1${u}`).send(b) }
+  return { app, pool, ids, as, queryCount: () => queries, request: (m, u, b) => request(app)[m](`/api/v1${u}`).send(b) }
 }
 
 // A course taught by `teacher` with `student` and `student2` enrolled.

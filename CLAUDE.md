@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Acadex is a college major project ("Smart Student Management"): 11 student-facing modules added on top of an existing College Management System, with Student, Teacher and Admin portals. The directory is not a git repo and holds three things:
 
 - `acadex-frontend/`: Next.js 14 (App Router, JavaScript) + Tailwind prototype of all three portals.
-- `acadex-backend/`: Django REST service for the **Student Community** module only (adapted from github.com/atharvjoshi944-netizen/MU-CONNECT). Everything else in the front end still runs on mock data.
+- `acadex-backend/`: legacy Django REST service for the **Student Community** module (now ported to Express in `acadex/api`; kept as reference) (adapted from github.com/atharvjoshi944-netizen/MU-CONNECT). Everything else in the front end still runs on mock data.
 - `ACADEX-SMART-STUDENT-MANAGEMENT-31-slides.pptx`: the current presentation (the `-redesigned` file is the older 21-slide version). The deck is being grown from 21 to 60–70 slides in batches of 10.
 
 The tech stack on slide 10 of the deck (React/Next.js, Tailwind, Node/Express, PostgreSQL, Redis, JWT) is the stated target. Development must stay inside this stack (`.claude/rules/tech-stack.md`). The Django community service is a known exception that predates the rule: maintain it, but build new modules in Node/Express.

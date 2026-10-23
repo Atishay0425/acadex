@@ -3,6 +3,7 @@ import crypto from 'node:crypto'
 import { fileURLToPath } from 'node:url'
 import { loadConfig } from '../config.js'
 import { createPool } from './pool.js'
+import { ensureCourseRoom } from '../community/rooms.js'
 
 const USERS = [
   { email: 'admin@college.edu', name: 'Dr. R. Menon', role: 'admin', department: 'Administration' },
@@ -27,6 +28,16 @@ const ASSESSMENTS = {
   CE301: [{ title: 'Quiz 1', kind: 'quiz', max: 10, scores: { 'aarav.sharma@college.edu': 8, 'diya.patel@college.edu': 5 } }, { title: 'Mid-semester', kind: 'midterm', max: 50, scores: { 'aarav.sharma@college.edu': 36, 'diya.patel@college.edu': 24 } }],
   CE302: [{ title: 'Assignment 1', kind: 'assignment', max: 20, scores: { 'aarav.sharma@college.edu': 17, 'kabir.singh@college.edu': 9 } }],
 }
+
+// Demo community: open rooms plus posts in the course rooms and open rooms (course rooms come from the courses).
+const OPEN_ROOMS = [['Placement Prep', 'general'], ['Hackathons & Events', 'general'], ['CSE Branch Lounge', 'branch']]
+const POSTS = [
+  { room: 'course-ce301', kind: 'question', by: 'diya.patel@college.edu', title: 'When is a linked list better than an array?', content: 'Both store sequences. When should I pick a linked list in the lab assignment?', tags: ['Data Structures', 'Lists'] },
+  { room: 'course-ce301', kind: 'notes', by: 'aarav.sharma@college.edu', title: 'Stack and queue revision notes', content: 'One-page summary with push, pop, enqueue and dequeue complexities.', tags: ['Data Structures'] },
+  { room: 'course-ce302', kind: 'question', by: 'kabir.singh@college.edu', title: 'Normalisation: 3NF vs BCNF', content: 'I keep mixing these up. Can someone give a small example?', tags: ['DBMS'] },
+  { room: 'placement-prep', kind: 'resource', by: 'aarav.sharma@college.edu', title: 'Top 60 OS and DBMS interview questions', content: 'Compiled from this season’s campus drives.', tags: ['Placements', 'DBMS'] },
+  { room: 'hackathons-events', kind: 'event', by: 'diya.patel@college.edu', title: 'Codeathon registration closes Friday', content: 'Teams of 3. Register through the training cell.', tags: ['Codeathon'] },
+]
 
 // Local development data only. Set DEMO_PASSWORD or a random one is printed once.
 export async function seed(pool, password = process.env.DEMO_PASSWORD || crypto.randomBytes(9).toString('base64url')) {
@@ -67,7 +78,34 @@ export async function seed(pool, password = process.env.DEMO_PASSWORD || crypto.
       for (const [email, score] of Object.entries(a.scores)) await pool.query('INSERT INTO marks (assessment_id, student_id, score) VALUES ($1, $2, $3)', [aid, ids[email], score])
     }
   }
+  await seedCommunity(pool, ids)
   return password
+}
+
+async function seedCommunity(pool, ids) {
+  for (const c of COURSES) await ensureCourseRoom(pool, (await pool.query('SELECT id FROM courses WHERE code = $1', [c.code])).rows[0].id)
+  for (const [name, kind] of OPEN_ROOMS) {
+    const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+    if (!(await pool.query('SELECT 1 FROM rooms WHERE slug = $1', [slug])).rows.length) await pool.query('INSERT INTO rooms (name, slug, kind) VALUES ($1, $2, $3)', [name, slug, kind])
+  }
+  if ((await pool.query('SELECT 1 FROM posts')).rows.length) return
+  const made = []
+  for (const p of POSTS) {
+    const room = (await pool.query('SELECT id FROM rooms WHERE slug = $1', [p.room])).rows[0]
+    const post = (await pool.query('INSERT INTO posts (room_id, kind, title, content, author_id) VALUES ($1, $2, $3, $4, $5) RETURNING id', [room.id, p.kind, p.title, p.content, ids[p.by]])).rows[0]
+    for (const name of p.tags) {
+      const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-')
+      const tag = (await pool.query('SELECT id FROM tags WHERE slug = $1', [slug])).rows[0] ?? (await pool.query('INSERT INTO tags (name, slug) VALUES ($1, $2) RETURNING id', [name, slug])).rows[0]
+      await pool.query('INSERT INTO post_tags (post_id, tag_id) VALUES ($1, $2)', [post.id, tag.id])
+      await pool.query('UPDATE tags SET usage_count = usage_count + 1 WHERE id = $1', [tag.id])
+    }
+    made.push(post.id)
+  }
+  const ans = (await pool.query('INSERT INTO answers (post_id, author_id, content, is_faculty_verified) VALUES ($1, $2, $3, TRUE) RETURNING id', [made[0], ids['neha.verma@college.edu'], 'Pick a linked list when you insert or delete in the middle often and do not need random access. Arrays win when you index a lot.'])).rows[0]
+  await pool.query('UPDATE posts SET accepted_answer_id = $2 WHERE id = $1', [made[0], ans.id])
+  for (const [email, post] of [['aarav.sharma@college.edu', 0], ['kabir.singh@college.edu', 3], ['diya.patel@college.edu', 3]]) {
+    await pool.query('INSERT INTO post_votes (post_id, voter_id, value) VALUES ($1, $2, 1)', [made[post], ids[email]])
+  }
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
