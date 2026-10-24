@@ -125,6 +125,7 @@ test('other modules notify too: assignments, tickets, counselling, mentorship, p
   assert.equal((await inbox(ctx, 'student')).items[0].title, 'Your counselling session is confirmed')
 
   await ctx.as('student2').put('/mentorship/mentors/me', { headline: 'Placed at Microsoft', topics: ['DSA'] })
+  await ctx.as('admin').patch(`/mentorship/mentors/${ctx.ids.student2}`, { approval: 'approved' })
   const q = (await ctx.as('student').post('/mentorship/questions', { mentorId: ctx.ids.student2, text: 'How do I prepare for interviews?' })).body
   assert.equal((await inbox(ctx, 'student2')).items[0].title, 'A junior asked you a question')
   await ctx.as('student2').post(`/mentorship/questions/${q.id}/answer`, { answer: 'Practise daily.' })

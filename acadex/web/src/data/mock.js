@@ -4,6 +4,7 @@ export const me = {
   student: { name: 'Aarav Sharma', id: 'EN22CS301045', branch: 'CSE', year: '3rd Year', sem: 'Sem 6', mentor: 'Dr. Neha Verma', cgpa: 7.8 },
   teacher: { name: 'Dr. Neha Verma', id: 'FAC-0231', dept: 'Computer Science', subjects: ['Machine Learning', 'Data Structures'] },
   admin: { name: 'Rakesh Gupta', id: 'ADM-0007', dept: 'Academic Office' },
+  staff: { name: 'Department desk', id: 'STAFF', dept: 'Help desk' },
 }
 
 export const subjects = [

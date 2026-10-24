@@ -12,6 +12,8 @@ const USERS = [
   { email: 'aarav.sharma@college.edu', name: 'Aarav Sharma', role: 'student', department: 'Computer Engineering' },
   { email: 'diya.patel@college.edu', name: 'Diya Patel', role: 'student', department: 'Computer Engineering' },
   { email: 'kabir.singh@college.edu', name: 'Kabir Singh', role: 'student', department: 'Computer Engineering' },
+  { email: 'it.desk@college.edu', name: 'IT Services Desk', role: 'staff', department: 'IT Services', deskDepartment: 'IT Services' },
+  { email: 'accounts.desk@college.edu', name: 'Accounts Desk', role: 'staff', department: 'Accounts & Fees', deskDepartment: 'Accounts & Fees' },
 ]
 const COURSES = [
   { code: 'CE301', title: 'Data Structures', semester: 3, teacher: 'neha.verma@college.edu', students: ['aarav.sharma@college.edu', 'diya.patel@college.edu'] },
@@ -46,8 +48,8 @@ export async function seed(pool, password = process.env.DEMO_PASSWORD || crypto.
   for (const u of USERS) {
     const found = await pool.query('SELECT id FROM users WHERE email = $1', [u.email])
     ids[u.email] = found.rows[0]?.id ?? (await pool.query(
-      'INSERT INTO users (email, name, role, department, password_hash) VALUES ($1, $2, $3, $4, $5) RETURNING id',
-      [u.email, u.name, u.role, u.department, hash])).rows[0].id
+      'INSERT INTO users (email, name, role, department, desk_department, password_hash) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id',
+      [u.email, u.name, u.role, u.department, u.deskDepartment ?? null, hash])).rows[0].id
   }
   for (const c of COURSES) {
     let course = (await pool.query('SELECT id FROM courses WHERE code = $1', [c.code])).rows[0]
@@ -167,7 +169,7 @@ async function seedCounselling(pool, ids) {
 
 async function seedMentorship(pool, ids) {
   if ((await pool.query('SELECT 1 FROM mentor_profiles')).rows.length) return
-  const add = (email, headline, year, topics, bio) => pool.query('INSERT INTO mentor_profiles (user_id, headline, year_label, topics, bio) VALUES ($1, $2, $3, $4, $5)', [ids[email], headline, year, JSON.stringify(topics), bio])
+  const add = (email, headline, year, topics, bio) => pool.query('INSERT INTO mentor_profiles (user_id, headline, year_label, topics, bio, approval) VALUES ($1, $2, $3, $4, $5, \'approved\')', [ids[email], headline, year, JSON.stringify(topics), bio])
   await add('kabir.singh@college.edu', 'Intern at Amazon', 'Final Year · CSE', ['Internships', 'DSA', 'Projects'], 'Ask me about internship applications and daily DSA practice.')
   await add('diya.patel@college.edu', 'MS applicant (USA)', 'Final Year · CSE', ['Higher studies', 'GRE', 'Research'], 'Happy to share my GRE plan and how I picked universities.')
   const q = (await pool.query("INSERT INTO mentor_questions (asker_id, mentor_id, text, is_anonymous, answer, answered_at, rating) VALUES ($1, $2, 'How should I prepare for a software internship application?', TRUE, 'Build two small projects, practise 2 DSA problems daily, and apply early.', now(), 5) RETURNING id", [ids['aarav.sharma@college.edu'], ids['kabir.singh@college.edu']])).rows[0]

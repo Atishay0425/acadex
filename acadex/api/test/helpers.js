@@ -62,7 +62,7 @@ export async function setup({ mailer, pusher, ocr, redis, rateLimit, files = cre
     raw: (u, buf, type) => request(app).post(`/api/v1${u}`).set('Authorization', `Bearer ${tokens[key]}`).set('Content-Type', type).send(buf),
     del: (u) => request(app).delete(`/api/v1${u}`).set('Authorization', `Bearer ${tokens[key]}`),
   })
-  return { app, pool, ids, as, queryCount: () => queries, request: (m, u, b) => request(app)[m](`/api/v1${u}`).send(b) }
+  return { app, pool, ids, as, login, queryCount: () => queries, request: (m, u, b) => request(app)[m](`/api/v1${u}`).send(b) }
 }
 
 // A course taught by `teacher` with `student` and `student2` enrolled.

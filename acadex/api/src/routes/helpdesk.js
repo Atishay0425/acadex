@@ -18,17 +18,27 @@ const shape = (t) => ({
   title: t.title, details: t.details, priority: t.priority, status: t.status, createdAt: t.created_at, updatedAt: t.updated_at, resolvedAt: t.resolved_at,
 })
 
-// Students raise tickets; admins (the front desk) route, answer and resolve them.
+// Students raise tickets; admins (the front desk) route, answer and resolve them. Department staff do the same for
+// the tickets routed to their own department only, and cannot re-route them.
 export function helpdeskRouter({ pool, config, notify }) {
   const r = Router()
   const create = limiter({ ...config }, 'ticket')
 
+  // The help-desk department a staff member handles (read from the database, not the token, so a change applies at once).
+  async function deskOf(user) {
+    const d = (await pool.query('SELECT desk_department FROM users WHERE id = $1 AND is_active = TRUE', [user.id])).rows[0]?.desk_department
+    if (!d) throw forbidden('No help-desk department is assigned to this account')
+    return d
+  }
   async function visible(user, ticketId) {
     const t = (await pool.query(`${SELECT} WHERE t.id = $1`, [ticketId])).rows[0]
-    if (!t || (user.role !== 'admin' && t.student_id !== user.id)) throw notFound('Ticket not found')
+    if (!t) throw notFound('Ticket not found')
+    if (user.role === 'staff' ? t.department !== (await deskOf(user)) : (user.role !== 'admin' && t.student_id !== user.id)) throw notFound('Ticket not found')
     return t
   }
   const adminIds = async () => (await pool.query("SELECT id FROM users WHERE role = 'admin' AND is_active = TRUE")).rows.map((x) => x.id)
+  const staffIds = async (department) => (await pool.query("SELECT id FROM users WHERE role = 'staff' AND desk_department = $1 AND is_active = TRUE", [department])).rows.map((x) => x.id)
+  const deskIds = async (department) => [...await adminIds(), ...await staffIds(department)] // everyone who works on a department's tickets
   const messages = async (ticketId) => (await pool.query('SELECT m.id, m.body, m.created_at, u.id AS author_id, u.name, u.role FROM ticket_messages m JOIN users u ON u.id = m.author_id WHERE m.ticket_id = $1 ORDER BY m.created_at, m.id', [ticketId])).rows
     .map((m) => ({ id: m.id, body: m.body, createdAt: m.created_at, author: { id: m.author_id, name: m.name, role: m.role } }))
 
@@ -39,8 +49,9 @@ export function helpdeskRouter({ pool, config, notify }) {
     const f = z.object({ status: z.enum(['open', 'in_progress', 'resolved']).optional(), department: z.enum(DEPARTMENTS).optional() }).parse(req.query)
     const where = []; const params = []
     if (req.user.role === 'student') { params.push(req.user.id); where.push(`t.student_id = $${params.length}`) }
+    if (req.user.role === 'staff') { params.push(await deskOf(req.user)); where.push(`t.department = $${params.length}`) }
     if (f.status) { params.push(f.status); where.push(`t.status = $${params.length}`) }
-    if (f.department) { params.push(f.department); where.push(`t.department = $${params.length}`) }
+    if (f.department && req.user.role !== 'staff') { params.push(f.department); where.push(`t.department = $${params.length}`) }
     const rows = (await pool.query(`${SELECT} ${where.length ? `WHERE ${where.join(' AND ')}` : ''} ORDER BY t.created_at DESC, t.id DESC`, params)).rows
     res.json(rows.map(shape))
   }))
@@ -49,7 +60,7 @@ export function helpdeskRouter({ pool, config, notify }) {
     const b = createBody.parse(req.body)
     const { rows } = await pool.query('INSERT INTO tickets (student_id, category, department, title, details, priority) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id',
       [req.user.id, b.category, departmentFor(b.category), b.title, b.details, suggestPriority(`${b.title} ${b.details}`)])
-    await notify(await adminIds(), { kind: 'ticket', title: `New ticket: ${b.title}`, body: `${req.user.name} raised a ${b.category} ticket.`, link: '/admin/tickets' })
+    await notify(await deskIds(departmentFor(b.category)), { kind: 'ticket', title: `New ticket: ${b.title}`, body: `${req.user.name} raised a ${b.category} ticket.`, link: '/admin/tickets' })
     res.status(201).json(shape(await visible(req.user, rows[0].id)))
   }))
 
@@ -64,20 +75,23 @@ export function helpdeskRouter({ pool, config, notify }) {
     const t = await visible(req.user, id.parse(req.params.ticketId))
     const { body } = messageBody.parse(req.body)
     await pool.query('INSERT INTO ticket_messages (ticket_id, author_id, body) VALUES ($1, $2, $3)', [t.id, req.user.id, body])
-    const next = req.user.role === 'admin' ? (t.status === 'open' ? 'in_progress' : t.status) : (t.status === 'resolved' ? 'open' : t.status)
+    const desk = req.user.role !== 'student'
+    const next = desk ? (t.status === 'open' ? 'in_progress' : t.status) : (t.status === 'resolved' ? 'open' : t.status)
     await pool.query('UPDATE tickets SET status = $2, resolved_at = $3, updated_at = now() WHERE id = $1', [t.id, next, next === 'resolved' ? t.resolved_at : null])
-    if (req.user.role === 'admin') await notify([t.student_id], { kind: 'ticket', title: `${ticketNumber(t.id)} has a new reply`, body, link: '/student/help' })
-    else await notify(await adminIds(), { kind: 'ticket', title: `${ticketNumber(t.id)}: student replied`, body, link: '/admin/tickets' })
+    if (desk) await notify([t.student_id], { kind: 'ticket', title: `${ticketNumber(t.id)} has a new reply`, body, link: '/student/help' })
+    else await notify(await deskIds(t.department), { kind: 'ticket', title: `${ticketNumber(t.id)}: student replied`, body, link: '/admin/tickets' })
     res.status(201).json({ messages: await messages(t.id), status: next })
   }))
 
-  r.patch('/tickets/:ticketId', requireRole('admin'), wrap(async (req, res) => {
+  r.patch('/tickets/:ticketId', requireRole('admin', 'staff'), wrap(async (req, res) => {
     const t = await visible(req.user, id.parse(req.params.ticketId))
     const b = patchBody.parse(req.body)
+    if (b.department && req.user.role !== 'admin') throw forbidden('Only an admin can re-route a ticket')
     const status = b.status ?? t.status
     const resolvedAt = status === 'resolved' ? (t.status === 'resolved' ? t.resolved_at : new Date()) : null
     await pool.query('UPDATE tickets SET department = $2, status = $3, priority = $4, resolved_at = $5, updated_at = now() WHERE id = $1', [t.id, b.department ?? t.department, status, b.priority ?? t.priority, resolvedAt])
     if (status !== t.status) await notify([t.student_id], { kind: 'ticket', title: `${ticketNumber(t.id)} is now ${status.replace('_', ' ')}`, body: t.title, link: '/student/help' })
+    if (b.department && b.department !== t.department) await notify(await staffIds(b.department), { kind: 'ticket', title: `${ticketNumber(t.id)} was routed to your department`, body: t.title, link: '/staff' })
     res.json(shape(await visible(req.user, t.id)))
   }))
 

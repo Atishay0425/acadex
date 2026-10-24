@@ -24,8 +24,8 @@ export default function TicketThread({ ticket, onClose, onChanged, toast }) {
         <ul className="mb-4 space-y-2">
           {t.messages.length === 0 && <li className="text-sm text-gray-500">No replies yet.</li>}
           {t.messages.map((m) => (
-            <li key={m.id} className={`rounded-lg p-3 text-sm ${m.author.role === 'admin' ? 'bg-primary-50' : 'bg-gray-50'}`}>
-              <p className="mb-0.5 text-xs font-bold text-primary-dark">{m.author.name} <span className="font-normal text-gray-400">· {m.author.role === 'admin' ? 'Help desk' : 'Student'} · {ago(m.createdAt)}</span></p>{m.body}
+            <li key={m.id} className={`rounded-lg p-3 text-sm ${m.author.role !== 'student' ? 'bg-primary-50' : 'bg-gray-50'}`}>
+              <p className="mb-0.5 text-xs font-bold text-primary-dark">{m.author.name} <span className="font-normal text-gray-400">· {m.author.role !== 'student' ? 'Help desk' : 'Student'} · {ago(m.createdAt)}</span></p>{m.body}
             </li>
           ))}
         </ul>

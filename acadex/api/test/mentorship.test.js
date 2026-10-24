@@ -4,10 +4,12 @@ import { setup } from './helpers.js'
 
 const M = '/mentorship'
 const profile = { headline: 'Placed at Microsoft', year: 'Final Year', topics: ['Placements', 'DSA'], bio: 'Happy to help with interviews.' }
-// `student2` is a mentor; `student` is a junior.
+const approve = (ctx, key) => ctx.as('admin').patch(`${M}/mentors/${ctx.ids[key]}`, { approval: 'approved' })
+// `student2` is an approved mentor; `student` is a junior.
 async function world() {
   const ctx = await setup()
   await ctx.as('student2').put(`${M}/mentors/me`, profile)
+  await approve(ctx, 'student2')
   return ctx
 }
 const ask = (ctx, key, extra = {}) => ctx.as(key).post(`${M}/questions`, { mentorId: ctx.ids.student2, text: 'How should I prepare for the online assessment?', ...extra })
@@ -21,6 +23,7 @@ test('a student opts in as a mentor, edits the profile, and can step down', asyn
   const res = await ctx.as('student').put(`${M}/mentors/me`, profile)
   assert.deepEqual([res.body.headline, res.body.topics, res.body.isMe, res.body.rating], ['Placed at Microsoft', ['Placements', 'DSA'], true, null])
   assert.equal((await ctx.as('student').put(`${M}/mentors/me`, { ...profile, headline: 'Intern at Amazon' })).body.headline, 'Intern at Amazon')
+  await approve(ctx, 'student')
   assert.equal((await ctx.as('student2').get(`${M}/mentors`)).body.length, 1)
   assert.equal((await ctx.as('student').del(`${M}/mentors/me`)).status, 204)
   assert.equal((await ctx.as('student2').get(`${M}/mentors`)).body.length, 0)
@@ -29,6 +32,7 @@ test('a student opts in as a mentor, edits the profile, and can step down', asyn
 test('mentor list: search, topic and department filters, and admin can hide a mentor', async () => {
   const ctx = await world()
   await ctx.as('student').put(`${M}/mentors/me`, { headline: 'MS applicant', year: '4th Year', topics: ['GRE'], bio: '' })
+  await approve(ctx, 'student')
   const names = async (qs) => (await ctx.as('teacher').get(`${M}/mentors${qs}`)).body.map((m) => m.name)
   assert.deepEqual(await names(''), ['Student One', 'Student Two'])
   assert.deepEqual(await names('?topic=gre'), ['Student One'])
@@ -85,4 +89,33 @@ test('questions are private to the asker and the mentor', async () => {
   assert.equal((await ctx.as('student').get(`${M}/questions?box=received`)).body.length, 0)
   assert.equal((await ctx.as('teacher').get(`${M}/questions`)).status, 403)
   assert.equal((await ctx.request('get', `${M}/questions`)).status, 401)
+})
+
+test('approval: a new or edited profile stays out of the list until an admin approves it', async () => {
+  const ctx = await setup()
+  const mine = (await ctx.as('student2').put(`${M}/mentors/me`, profile)).body
+  assert.deepEqual([mine.approval, mine.isActive], ['pending', true])
+  const visible = async () => (await ctx.as('student').get(`${M}/mentors`)).body.length
+  assert.equal(await visible(), 0)
+  assert.equal((await ask(ctx, 'student')).status, 404) // cannot ask a pending mentor
+  const review = (await ctx.as('admin').get(`${M}/mentors?approval=pending`)).body
+  assert.deepEqual(review.map((m) => [m.name, m.approval]), [['Student Two', 'pending']])
+  assert.equal((await ctx.as('teacher').patch(`${M}/mentors/${ctx.ids.student2}`, { approval: 'approved' })).status, 403)
+  assert.equal((await ctx.as('student').patch(`${M}/mentors/${ctx.ids.student2}`, { approval: 'approved' })).status, 403)
+  assert.equal((await ctx.as('admin').patch(`${M}/mentors/${ctx.ids.student2}`, { approval: 'maybe' })).status, 400)
+  assert.equal((await ctx.as('admin').patch(`${M}/mentors/${ctx.ids.student2}`, {})).status, 400)
+  const note = 'Please name the company you were placed at.'
+  const no = await ctx.as('admin').patch(`${M}/mentors/${ctx.ids.student2}`, { approval: 'rejected', note })
+  assert.deepEqual([no.status, no.body.approval, no.body.reviewNote], [200, 'rejected', note])
+  assert.deepEqual([(await ctx.as('student2').get(`${M}/mentors/me`)).body.approval, await visible()], ['rejected', 0])
+  assert.equal((await ctx.as('student2').put(`${M}/mentors/me`, profile)).body.approval, 'rejected') // saved unchanged: still rejected
+  assert.deepEqual((await ctx.as('student2').put(`${M}/mentors/me`, { ...profile, headline: 'Placed at Microsoft, SDE intern' })).body.approval, 'pending') // an edit resubmits
+  assert.equal((await ctx.as('admin').patch(`${M}/mentors/${ctx.ids.student2}`, { approval: 'approved' })).status, 200)
+  assert.deepEqual([await visible(), (await ask(ctx, 'student')).status], [1, 201])
+  assert.equal((await ctx.as('student2').put(`${M}/mentors/me`, { ...profile, headline: 'Placed at Microsoft, SDE intern' })).body.approval, 'approved') // unchanged save keeps it
+  assert.equal((await ctx.as('student2').put(`${M}/mentors/me`, { ...profile, bio: 'Changed after approval.' })).body.approval, 'pending')
+  assert.equal(await visible(), 0) // an edited profile leaves the list again
+  const inbox = async (key) => (await ctx.as(key).get('/notifications')).body
+  assert.ok(JSON.stringify(await inbox('admin')).includes('needs review'))
+  assert.ok(JSON.stringify(await inbox('student2')).includes('mentor profile'))
 })

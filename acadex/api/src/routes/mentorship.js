@@ -15,12 +15,14 @@ const askBody = z.object({ mentorId: z.number().int().positive(), text: z.string
 const MAX_PENDING = 10
 
 // Senior-junior mentorship. Any student can opt in as a mentor; juniors ask them questions (optionally
-// anonymously), mentors answer, and the asker rates helpful answers. Admins can hide a mentor profile.
+// anonymously), mentors answer, and the asker rates helpful answers. A profile is listed only once an admin has
+// approved it (and again after any edit to it); admins can also hide a profile.
 export function mentorshipRouter({ pool, notify }) {
   const r = Router()
 
   const mentorShape = (p, stats, me) => ({
     id: p.user_id, name: p.name, department: p.department, headline: p.headline, year: p.year_label, topics: JSON.parse(p.topics), bio: p.bio, isActive: p.is_active,
+    approval: p.approval, reviewNote: p.review_note,
     rating: stats.count ? Math.round((stats.sum / stats.count) * 10) / 10 : null, ratingCount: stats.count, answered: stats.answered, isMe: p.user_id === me,
   })
   async function statsFor() {
@@ -32,11 +34,13 @@ export function mentorshipRouter({ pool, notify }) {
     }
     return { get: (k) => out.get(k) ?? { sum: 0, count: 0, answered: 0 } }
   }
+  const adminIds = async () => (await pool.query("SELECT id FROM users WHERE role = 'admin' AND is_active = TRUE")).rows.map((x) => x.id)
   const PROFILE_SELECT = 'SELECT p.*, u.name, u.department FROM mentor_profiles p JOIN users u ON u.id = p.user_id'
 
   r.get('/mentors', wrap(async (req, res) => {
-    const f = z.object({ q: z.string().max(80).optional(), topic: z.string().max(40).optional(), department: z.string().max(100).optional() }).parse(req.query)
-    const rows = (await pool.query(`${PROFILE_SELECT} WHERE ${req.user.role === 'admin' ? 'TRUE' : 'p.is_active = TRUE'} ORDER BY u.name`)).rows
+    const f = z.object({ q: z.string().max(80).optional(), topic: z.string().max(40).optional(), department: z.string().max(100).optional(), approval: z.enum(['pending', 'approved', 'rejected']).optional() }).parse(req.query)
+    const admin = req.user.role === 'admin'
+    const rows = (await pool.query(`${PROFILE_SELECT} WHERE ${admin ? (f.approval ? 'p.approval = $1' : 'TRUE') : "p.is_active = TRUE AND p.approval = 'approved'"} ORDER BY u.name`, admin && f.approval ? [f.approval] : [])).rows
     const st = await statsFor()
     let list = rows.map((p) => mentorShape(p, st.get(p.user_id), req.user.id))
     if (f.q) list = list.filter((m) => `${m.name} ${m.headline} ${m.topics.join(' ')}`.toLowerCase().includes(f.q.toLowerCase()))
@@ -52,9 +56,17 @@ export function mentorshipRouter({ pool, notify }) {
 
   r.put('/mentors/me', requireRole('student'), wrap(async (req, res) => {
     const b = profileBody.parse(req.body)
-    const has = (await pool.query('SELECT is_active FROM mentor_profiles WHERE user_id = $1', [req.user.id])).rows[0]
-    if (has) await pool.query('UPDATE mentor_profiles SET headline = $2, year_label = $3, topics = $4, bio = $5 WHERE user_id = $1', [req.user.id, b.headline, b.year, JSON.stringify(b.topics), b.bio])
-    else await pool.query('INSERT INTO mentor_profiles (user_id, headline, year_label, topics, bio) VALUES ($1, $2, $3, $4, $5)', [req.user.id, b.headline, b.year, JSON.stringify(b.topics), b.bio])
+    const has = (await pool.query('SELECT * FROM mentor_profiles WHERE user_id = $1', [req.user.id])).rows[0]
+    const topics = JSON.stringify(b.topics)
+    if (has) {
+      // Any change to the text goes back to review, so a profile cannot be swapped after it was approved. Saving it unchanged keeps the decision.
+      const changed = has.headline !== b.headline || has.year_label !== b.year || has.topics !== topics || has.bio !== b.bio
+      await pool.query('UPDATE mentor_profiles SET headline = $2, year_label = $3, topics = $4, bio = $5, approval = $6, review_note = $7 WHERE user_id = $1', [req.user.id, b.headline, b.year, topics, b.bio, changed ? 'pending' : has.approval, changed ? '' : has.review_note])
+      if (changed) await notify(await adminIds(), { kind: 'mentorship', title: 'A mentor profile needs review', body: `${req.user.name} updated their mentor profile.`, link: '/admin/mentors' })
+    } else {
+      await pool.query('INSERT INTO mentor_profiles (user_id, headline, year_label, topics, bio) VALUES ($1, $2, $3, $4, $5)', [req.user.id, b.headline, b.year, topics, b.bio])
+      await notify(await adminIds(), { kind: 'mentorship', title: 'A new mentor profile needs review', body: `${req.user.name}: ${b.headline}`, link: '/admin/mentors' })
+    }
     const p = (await pool.query(`${PROFILE_SELECT} WHERE p.user_id = $1`, [req.user.id])).rows[0]
     res.json(mentorShape(p, (await statsFor()).get(req.user.id), req.user.id))
   }))
@@ -66,10 +78,13 @@ export function mentorshipRouter({ pool, notify }) {
   }))
 
   r.patch('/mentors/:userId', requireRole('admin'), wrap(async (req, res) => {
-    const { isActive } = z.object({ isActive: z.boolean() }).parse(req.body)
-    const p = (await pool.query('UPDATE mentor_profiles SET is_active = $2 WHERE user_id = $1 RETURNING user_id', [id.parse(req.params.userId), isActive])).rows[0]
-    if (!p) throw notFound('Mentor not found')
-    res.json({ id: p.user_id, isActive })
+    const b = z.object({ isActive: z.boolean(), approval: z.enum(['approved', 'rejected']), note: z.string().trim().max(500) }).partial().refine((x) => x.isActive !== undefined || x.approval, 'Nothing to update').parse(req.body)
+    const cur = (await pool.query('SELECT * FROM mentor_profiles WHERE user_id = $1', [id.parse(req.params.userId)])).rows[0]
+    if (!cur) throw notFound('Mentor not found')
+    const approval = b.approval ?? cur.approval, note = b.approval ? (b.note ?? '') : cur.review_note
+    await pool.query('UPDATE mentor_profiles SET is_active = $2, approval = $3, review_note = $4 WHERE user_id = $1', [cur.user_id, b.isActive ?? cur.is_active, approval, note])
+    if (b.approval && b.approval !== cur.approval) await notify([cur.user_id], { kind: 'mentorship', title: b.approval === 'approved' ? 'Your mentor profile was approved' : 'Your mentor profile needs changes', body: b.approval === 'approved' ? 'Juniors can now find and ask you questions.' : (note || 'Edit your profile and save it to send it for review again.'), link: '/student/mentorship' })
+    res.json({ id: cur.user_id, isActive: b.isActive ?? cur.is_active, approval, reviewNote: note })
   }))
 
   // --- questions
@@ -80,7 +95,7 @@ export function mentorshipRouter({ pool, notify }) {
   r.post('/questions', requireRole('student'), wrap(async (req, res) => {
     const b = askBody.parse(req.body)
     if (b.mentorId === req.user.id) throw new HttpError(400, 'You cannot ask yourself')
-    const m = (await pool.query('SELECT 1 FROM mentor_profiles p JOIN users u ON u.id = p.user_id WHERE p.user_id = $1 AND p.is_active = TRUE AND u.is_active = TRUE', [b.mentorId])).rows[0]
+    const m = (await pool.query('SELECT 1 FROM mentor_profiles p JOIN users u ON u.id = p.user_id WHERE p.user_id = $1 AND p.is_active = TRUE AND p.approval = \'approved\' AND u.is_active = TRUE', [b.mentorId])).rows[0]
     if (!m) throw notFound('Mentor not found')
     const open = Number((await pool.query('SELECT COUNT(*) AS n FROM mentor_questions WHERE asker_id = $1 AND answered_at IS NULL', [req.user.id])).rows[0].n)
     if (open >= MAX_PENDING) throw new HttpError(400, `You already have ${MAX_PENDING} unanswered questions. Wait for replies first.`)

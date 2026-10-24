@@ -58,6 +58,9 @@ const NAV = {
     ] },
     { group: 'Projects', items: [{ to: 'projects', label: 'Project Reviews', icon: FolderKanban }] },
   ],
+  staff: [
+    { group: null, items: [{ to: '', label: 'My Department Desk', icon: LifeBuoy, end: true }] },
+  ],
   admin: [
     { group: null, items: [{ to: '', label: 'Analytics Dashboard', icon: LayoutDashboard, end: true }] },
     { group: 'Insights', items: [
@@ -68,6 +71,7 @@ const NAV = {
     { group: 'Operations', items: [
       { to: 'tickets', label: 'Help Center Routing', icon: LifeBuoy },
       { to: 'moderation', label: 'Community Moderation', icon: ClipboardList },
+      { to: 'mentors', label: 'Mentor Approvals', icon: Users },
     ] },
     { group: 'Administration', items: [
       { to: 'courses', label: 'Courses', icon: Library },
@@ -78,7 +82,8 @@ const NAV = {
   ],
 }
 
-const ROLE_LABEL = { student: 'Student', teacher: 'Teacher', admin: 'Admin' }
+const ROLE_LABEL = { student: 'Student', teacher: 'Teacher', admin: 'Admin', staff: 'Staff' }
+const PORTALS = ['student', 'teacher', 'admin'] // the demo portal switcher; staff accounts only ever see their own desk
 
 export default function Shell({ role, children }) {
   const [open, setOpen] = useState(false)
@@ -118,8 +123,8 @@ export default function Shell({ role, children }) {
             </button>
             {menu && (
               <div className="absolute right-0 top-full mt-1 w-52 overflow-hidden rounded-lg border border-gray-200 bg-white py-1 text-ink shadow-lg">
-                <p className="px-3 py-1.5 text-[11px] font-semibold uppercase text-gray-500">Switch portal</p>
-                {Object.keys(ROLE_LABEL).filter((r) => r !== role).map((r) => (
+                {role !== 'staff' && <p className="px-3 py-1.5 text-[11px] font-semibold uppercase text-gray-500">Switch portal</p>}
+                {role !== 'staff' && PORTALS.filter((r) => r !== role).map((r) => (
                   <button key={r} onClick={() => { setMenu(false); router.push(`/${r}`) }} className="block w-full px-3 py-2 text-left text-sm hover:bg-primary-50">
                     {ROLE_LABEL[r]} portal
                   </button>
