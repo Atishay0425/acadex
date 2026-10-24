@@ -119,3 +119,25 @@ test('approval: a new or edited profile stays out of the list until an admin app
   assert.ok(JSON.stringify(await inbox('admin')).includes('needs review'))
   assert.ok(JSON.stringify(await inbox('student2')).includes('mentor profile'))
 })
+
+test('approval is tied to the version the admin reviewed, and only the fields sent are changed', async () => {
+  const ctx = await setup()
+  const v1 = (await ctx.as('student2').put(`${M}/mentors/me`, profile)).body
+  assert.equal(v1.revision, 0)
+  assert.equal((await ctx.as('student2').put(`${M}/mentors/me`, profile)).body.revision, 0) // an unchanged save is not a new version
+  const v2 = (await ctx.as('student2').put(`${M}/mentors/me`, { ...profile, bio: 'Rewritten after the admin opened the page.' })).body
+  assert.equal(v2.revision, 1)
+  const stale = await ctx.as('admin').patch(`${M}/mentors/${ctx.ids.student2}`, { approval: 'approved', revision: v1.revision })
+  assert.equal(stale.status, 409) // the admin saw version 0, the profile is now version 1
+  assert.equal((await ctx.as('student').get(`${M}/mentors`)).body.length, 0) // and nothing was approved
+  assert.equal((await ctx.as('admin').patch(`${M}/mentors/${ctx.ids.student2}`, { approval: 'approved', revision: v2.revision })).status, 200)
+  // hiding writes only isActive: it cannot undo a later edit's reset to pending
+  await ctx.as('student2').put(`${M}/mentors/me`, { ...profile, bio: 'Edited once more.' })
+  assert.equal((await ctx.as('admin').patch(`${M}/mentors/${ctx.ids.student2}`, { isActive: false })).body.approval, 'pending')
+  // sending a rejection again with a new note tells the mentor
+  const again = async (note) => ctx.as('admin').patch(`${M}/mentors/${ctx.ids.student2}`, { approval: 'rejected', note })
+  await again('Add your company.')
+  await again('Add your company and your branch.')
+  const notes = (await ctx.as('student2').get('/notifications')).body.items.filter((n) => n.title === 'Your mentor profile needs changes').map((n) => n.body)
+  assert.deepEqual(notes, ['Add your company and your branch.', 'Add your company.'])
+})

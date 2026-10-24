@@ -52,7 +52,7 @@ test('staff see and handle only their own department\'s tickets', async () => {
   const hostel = (await raise(ctx, 'student2', { category: 'hostel', title: 'No water in room 204' })).body
   assert.deepEqual((await ctx.as('fees').get('/helpdesk/tickets')).body.map((t) => t.id), [fees.id])
   assert.deepEqual((await ctx.as('hostel').get('/helpdesk/tickets')).body.map((t) => t.id), [hostel.id])
-  assert.equal((await ctx.as('fees').get('/helpdesk/tickets?department=Hostel')).body.length, 1) // the filter cannot widen it
+  assert.deepEqual((await ctx.as('fees').get('/helpdesk/tickets?department=Hostel')).body.map((t) => t.id), [fees.id]) // the filter cannot widen it
   assert.equal((await ctx.as('fees').get(`/helpdesk/tickets/${hostel.id}`)).status, 404)
   assert.equal((await ctx.as('fees').post(`/helpdesk/tickets/${hostel.id}/messages`, { body: 'Not mine' })).status, 404)
   assert.equal((await ctx.as('fees').patch(`/helpdesk/tickets/${hostel.id}`, { status: 'resolved' })).status, 404)
@@ -79,6 +79,7 @@ test('the right desk is notified, and the student hears back from staff', async 
   assert.ok(JSON.stringify(await inbox(ctx, 'fees')).includes('New ticket'))
   assert.ok(JSON.stringify(await inbox(ctx, 'admin')).includes('New ticket'))
   assert.equal((await inbox(ctx, 'hostel')).length, 0) // another department hears nothing
+  assert.deepEqual([(await inbox(ctx, 'fees'))[0].link, (await inbox(ctx, 'admin'))[0].link], ['/staff', '/admin/tickets']) // each is sent to a page they can open
   await ctx.as('fees').post(`/helpdesk/tickets/${t.id}/messages`, { body: 'Receipt re-issued.' })
   assert.ok(JSON.stringify(await inbox(ctx, 'student')).includes('has a new reply'))
   await ctx.as('admin').patch(`/helpdesk/tickets/${t.id}`, { department: 'Hostel' })

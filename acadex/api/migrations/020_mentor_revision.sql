@@ -1,0 +1,1 @@
+ALTER TABLE mentor_profiles ADD COLUMN revision INTEGER NOT NULL DEFAULT 0

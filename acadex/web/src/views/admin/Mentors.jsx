@@ -18,7 +18,8 @@ export default function Mentors() {
   const list = all.data || []
   const rows = list.filter((m) => m.approval === tab)
   const count = (a) => list.filter((m) => m.approval === a).length
-  const patch = async (m, body, ok) => { try { await api(`/mentorship/mentors/${m.id}`, { method: 'PATCH', body }); toast(ok); setReject(null); all.reload() } catch (e) { toast(errorText(e)) } }
+  // Decisions carry the profile version on screen, so one made on a stale row is refused instead of approving unseen text.
+  const patch = async (m, body, ok) => { try { await api(`/mentorship/mentors/${m.id}`, { method: 'PATCH', body: body.approval ? { ...body, revision: m.revision } : body }); toast(ok); setReject(null); all.reload() } catch (e) { toast(errorText(e)); setReject(null); all.reload() } }
 
   return (
     <>

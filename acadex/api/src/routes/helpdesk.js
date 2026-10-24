@@ -38,7 +38,8 @@ export function helpdeskRouter({ pool, config, notify }) {
   }
   const adminIds = async () => (await pool.query("SELECT id FROM users WHERE role = 'admin' AND is_active = TRUE")).rows.map((x) => x.id)
   const staffIds = async (department) => (await pool.query("SELECT id FROM users WHERE role = 'staff' AND desk_department = $1 AND is_active = TRUE", [department])).rows.map((x) => x.id)
-  const deskIds = async (department) => [...await adminIds(), ...await staffIds(department)] // everyone who works on a department's tickets
+  // Tells everyone who works on a department's tickets: admins go to the routing page, staff to their own desk.
+  const notifyDesk = async (department, n) => { await notify(await adminIds(), { ...n, link: '/admin/tickets' }); await notify(await staffIds(department), { ...n, link: '/staff' }) }
   const messages = async (ticketId) => (await pool.query('SELECT m.id, m.body, m.created_at, u.id AS author_id, u.name, u.role FROM ticket_messages m JOIN users u ON u.id = m.author_id WHERE m.ticket_id = $1 ORDER BY m.created_at, m.id', [ticketId])).rows
     .map((m) => ({ id: m.id, body: m.body, createdAt: m.created_at, author: { id: m.author_id, name: m.name, role: m.role } }))
 
@@ -60,7 +61,7 @@ export function helpdeskRouter({ pool, config, notify }) {
     const b = createBody.parse(req.body)
     const { rows } = await pool.query('INSERT INTO tickets (student_id, category, department, title, details, priority) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id',
       [req.user.id, b.category, departmentFor(b.category), b.title, b.details, suggestPriority(`${b.title} ${b.details}`)])
-    await notify(await deskIds(departmentFor(b.category)), { kind: 'ticket', title: `New ticket: ${b.title}`, body: `${req.user.name} raised a ${b.category} ticket.`, link: '/admin/tickets' })
+    await notifyDesk(departmentFor(b.category), { kind: 'ticket', title: `New ticket: ${b.title}`, body: `${req.user.name} raised a ${b.category} ticket.` })
     res.status(201).json(shape(await visible(req.user, rows[0].id)))
   }))
 
@@ -79,7 +80,7 @@ export function helpdeskRouter({ pool, config, notify }) {
     const next = desk ? (t.status === 'open' ? 'in_progress' : t.status) : (t.status === 'resolved' ? 'open' : t.status)
     await pool.query('UPDATE tickets SET status = $2, resolved_at = $3, updated_at = now() WHERE id = $1', [t.id, next, next === 'resolved' ? t.resolved_at : null])
     if (desk) await notify([t.student_id], { kind: 'ticket', title: `${ticketNumber(t.id)} has a new reply`, body, link: '/student/help' })
-    else await notify(await deskIds(t.department), { kind: 'ticket', title: `${ticketNumber(t.id)}: student replied`, body, link: '/admin/tickets' })
+    else await notifyDesk(t.department, { kind: 'ticket', title: `${ticketNumber(t.id)}: student replied`, body })
     res.status(201).json({ messages: await messages(t.id), status: next })
   }))
 

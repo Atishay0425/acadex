@@ -38,8 +38,8 @@ export default function Mentor() {
     <>
       <PageHeader icon={Users} title="Senior–Junior Mentorship" subtitle="Find a mentor, ask college and career questions anonymously, and rate the answers"
         actions={<button className="btn-ghost" onClick={openEdit}>{mine.data?.isActive ? 'Edit my mentor profile' : 'Become a mentor'}</button>} />
-      {mine.data?.approval === 'pending' && <div className="mb-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-800">Your mentor profile is waiting for admin approval. Juniors will see it once it is approved. Editing it sends it for review again.</div>}
-      {mine.data?.approval === 'rejected' && <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-secondary">Your mentor profile needs changes{mine.data.reviewNote ? `: ${mine.data.reviewNote}` : '.'} Edit it and save to send it for review again.</div>}
+      {mine.data?.isActive && mine.data.approval === 'pending' && <div className="mb-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-800">Your mentor profile is waiting for admin approval. Juniors will see it once it is approved. Editing it sends it for review again.</div>}
+      {mine.data?.isActive && mine.data.approval === 'rejected' && <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-secondary">Your mentor profile needs changes{mine.data.reviewNote ? `: ${mine.data.reviewNote}` : '.'} Edit it and save to send it for review again.</div>}
       <Tabs value={tab} onChange={setTab} tabs={[{ id: 'mentors', label: 'Find a mentor', count: list.length }, { id: 'questions', label: 'My questions', count: asked.data?.length }, ...(mine.data?.isActive ? [{ id: 'inbox', label: 'Questions for me', count: pending || undefined }] : [])]} />
 
       {tab === 'mentors' && (<>

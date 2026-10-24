@@ -22,7 +22,7 @@ export function mentorshipRouter({ pool, notify }) {
 
   const mentorShape = (p, stats, me) => ({
     id: p.user_id, name: p.name, department: p.department, headline: p.headline, year: p.year_label, topics: JSON.parse(p.topics), bio: p.bio, isActive: p.is_active,
-    approval: p.approval, reviewNote: p.review_note,
+    approval: p.approval, reviewNote: p.review_note, revision: p.revision,
     rating: stats.count ? Math.round((stats.sum / stats.count) * 10) / 10 : null, ratingCount: stats.count, answered: stats.answered, isMe: p.user_id === me,
   })
   async function statsFor() {
@@ -61,7 +61,7 @@ export function mentorshipRouter({ pool, notify }) {
     if (has) {
       // Any change to the text goes back to review, so a profile cannot be swapped after it was approved. Saving it unchanged keeps the decision.
       const changed = has.headline !== b.headline || has.year_label !== b.year || has.topics !== topics || has.bio !== b.bio
-      await pool.query('UPDATE mentor_profiles SET headline = $2, year_label = $3, topics = $4, bio = $5, approval = $6, review_note = $7 WHERE user_id = $1', [req.user.id, b.headline, b.year, topics, b.bio, changed ? 'pending' : has.approval, changed ? '' : has.review_note])
+      await pool.query('UPDATE mentor_profiles SET headline = $2, year_label = $3, topics = $4, bio = $5, approval = $6, review_note = $7, revision = revision + $8 WHERE user_id = $1', [req.user.id, b.headline, b.year, topics, b.bio, changed ? 'pending' : has.approval, changed ? '' : has.review_note, changed ? 1 : 0])
       if (changed) await notify(await adminIds(), { kind: 'mentorship', title: 'A mentor profile needs review', body: `${req.user.name} updated their mentor profile.`, link: '/admin/mentors' })
     } else {
       await pool.query('INSERT INTO mentor_profiles (user_id, headline, year_label, topics, bio) VALUES ($1, $2, $3, $4, $5)', [req.user.id, b.headline, b.year, topics, b.bio])
@@ -77,14 +77,18 @@ export function mentorshipRouter({ pool, notify }) {
     res.status(204).end()
   }))
 
+  // `revision` is the version of the profile the admin looked at. If the mentor edited it since, the decision is refused
+  // (409) so an approval never lands on text the admin has not seen. Only the fields being changed are written.
   r.patch('/mentors/:userId', requireRole('admin'), wrap(async (req, res) => {
-    const b = z.object({ isActive: z.boolean(), approval: z.enum(['approved', 'rejected']), note: z.string().trim().max(500) }).partial().refine((x) => x.isActive !== undefined || x.approval, 'Nothing to update').parse(req.body)
+    const b = z.object({ isActive: z.boolean(), approval: z.enum(['approved', 'rejected']), note: z.string().trim().max(500), revision: z.number().int().min(0) }).partial().refine((x) => x.isActive !== undefined || x.approval, 'Nothing to update').parse(req.body)
     const cur = (await pool.query('SELECT * FROM mentor_profiles WHERE user_id = $1', [id.parse(req.params.userId)])).rows[0]
     if (!cur) throw notFound('Mentor not found')
-    const approval = b.approval ?? cur.approval, note = b.approval ? (b.note ?? '') : cur.review_note
-    await pool.query('UPDATE mentor_profiles SET is_active = $2, approval = $3, review_note = $4 WHERE user_id = $1', [cur.user_id, b.isActive ?? cur.is_active, approval, note])
-    if (b.approval && b.approval !== cur.approval) await notify([cur.user_id], { kind: 'mentorship', title: b.approval === 'approved' ? 'Your mentor profile was approved' : 'Your mentor profile needs changes', body: b.approval === 'approved' ? 'Juniors can now find and ask you questions.' : (note || 'Edit your profile and save it to send it for review again.'), link: '/student/mentorship' })
-    res.json({ id: cur.user_id, isActive: b.isActive ?? cur.is_active, approval, reviewNote: note })
+    const upd = (await pool.query(
+      'UPDATE mentor_profiles SET is_active = COALESCE($2::boolean, is_active), approval = COALESCE($3::text, approval), review_note = CASE WHEN $3::text IS NULL THEN review_note ELSE $4::text END WHERE user_id = $1 AND ($5::integer IS NULL OR revision = $5::integer) RETURNING *',
+      [cur.user_id, b.isActive ?? null, b.approval ?? null, b.note ?? '', b.revision ?? null])).rows[0]
+    if (!upd) throw new HttpError(409, 'This profile was edited after you opened it. Reload and review it again.')
+    if (b.approval && (b.approval !== cur.approval || upd.review_note !== cur.review_note)) await notify([cur.user_id], { kind: 'mentorship', title: b.approval === 'approved' ? 'Your mentor profile was approved' : 'Your mentor profile needs changes', body: b.approval === 'approved' ? 'Juniors can now find and ask you questions.' : (upd.review_note || 'Edit your profile and save it to send it for review again.'), link: '/student/mentorship' })
+    res.json({ id: upd.user_id, isActive: upd.is_active, approval: upd.approval, reviewNote: upd.review_note, revision: upd.revision })
   }))
 
   // --- questions
