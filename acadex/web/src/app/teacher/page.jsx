@@ -1,2 +1,2 @@
-import { TeacherDashboard } from '../../views/teacher/Teacher'
-export default function Page() { return <TeacherDashboard /> }
+import DashboardLive from '../../views/teacher/DashboardLive'
+export default function Page() { return <DashboardLive /> }

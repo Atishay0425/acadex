@@ -17,7 +17,7 @@ const IV_SELECT = 'SELECT i.*, s.name AS student_name, c.code, b.name AS by_name
 // A derived "alert" list for the student: each is a concrete, fixable reason, worst first.
 const alertsFrom = (courses) => courses.flatMap((c) => c.drivers.map((d) => ({ level: d.points >= 20 ? 'high' : 'medium', title: `${c.code}: ${d.label.toLowerCase()}`, detail: d.detail, points: d.points }))).sort((a, b) => b.points - a.points)
 
-export function riskRouter({ pool }) {
+export function riskRouter({ pool, notify, cache }) {
   const r = Router()
 
   r.get('/me', requireRole('student'), wrap(async (req, res) => {
@@ -34,20 +34,25 @@ export function riskRouter({ pool }) {
     res.json(rows.map((s) => ({ studentId: s.studentId, name: s.name, email: s.email, score: s.score, level: s.level, drivers: s.drivers, signals: s.signals, latestIntervention: ivs.find((i) => i.studentId === s.studentId) ?? null })).sort((a, b) => b.score - a.score))
   }))
 
-  r.get('/overview', requireRole('admin'), wrap(async (_req, res) => {
+  r.get('/overview', requireRole('admin'), wrap(async (_req, res) => res.json(await cache.cached('risk:overview', 30, overview))))
+
+  async function overview() {
     const students = (await riskFor(pool)).sort((a, b) => b.score - a.score)
     const ivs = (await pool.query(`${IV_SELECT} ORDER BY i.created_at DESC, i.id DESC`)).rows.map(shapeIv)
     const dist = { low: 0, medium: 0, high: 0 }
     for (const s of students) dist[s.level]++
     const flagged = students.filter((s) => s.level !== 'low')
     const helped = new Set(ivs.map((i) => i.studentId))
-    res.json({
+    return {
       distribution: dist, total: students.length,
       interventions: { total: ivs.length, open: ivs.filter((i) => i.status === 'sent').length, responded: ivs.filter((i) => i.status !== 'sent').length },
       flaggedWithoutAction: flagged.filter((s) => !helped.has(s.studentId)).length,
+      // How many students each reason is hurting, so admins can see what is driving risk across the campus.
+      driverCounts: ['attendance', 'marks', 'assignments', 'trend'].map((key) => ({ key, label: { attendance: 'Low attendance', marks: 'Low marks', assignments: 'Missing assignments', trend: 'Marks falling' }[key], students: students.filter((s) => s.drivers.some((d) => d.key === key)).length })),
+      meanScore: students.length ? Math.round(students.reduce((a, s) => a + s.score, 0) / students.length) : 0,
       students: students.slice(0, 50).map((s) => ({ studentId: s.studentId, name: s.name, score: s.score, level: s.level, drivers: s.drivers.slice(0, 2), latestIntervention: ivs.find((i) => i.studentId === s.studentId) ?? null })),
-    })
-  }))
+    }
+  }
 
   // A student's interventions in one course (teacher of that course or admin).
   r.get('/interventions', requireRole('teacher', 'admin'), wrap(async (req, res) => {
@@ -64,6 +69,7 @@ export function riskRouter({ pool }) {
     if (!(await pool.query('SELECT 1 FROM enrollments WHERE course_id = $1 AND student_id = $2', [c.id, b.studentId])).rows.length) throw new HttpError(400, 'That student is not enrolled in this course')
     const [risk] = await riskFor(pool, { studentId: b.studentId })
     const row = (await pool.query('INSERT INTO interventions (student_id, course_id, action, note, risk_score, created_by) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id', [b.studentId, c.id, b.action, b.note, risk?.score ?? null, req.user.id])).rows[0]
+    await notify([b.studentId], { kind: 'support', title: { mentor_call: 'A teacher scheduled a mentor call with you', reminder: 'A teacher sent you a reminder', counselling_referral: 'A teacher referred you to a counsellor', note: 'A teacher left you a note' }[b.action], body: b.note, link: '/student/alerts' })
     res.status(201).json(shapeIv((await pool.query(`${IV_SELECT} WHERE i.id = $1`, [row.id])).rows[0]))
   }))
 

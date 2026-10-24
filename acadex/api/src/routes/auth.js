@@ -7,6 +7,7 @@ import { z } from 'zod'
 import { HttpError } from '../errors.js'
 import { wrap } from '../middleware/errors.js'
 import { authenticate } from '../middleware/auth.js'
+import { limiterStore } from '../redis.js'
 
 const email = z.string().trim().toLowerCase().email()
 const password = z.string().min(8).max(128)
@@ -21,7 +22,7 @@ const DUMMY_HASH = bcrypt.hashSync('not-a-real-password', 10)
 
 export function authRouter({ pool, config }) {
   const r = Router()
-  const limiter = config.rateLimit ? rateLimit({ windowMs: 15 * 60 * 1000, limit: 30, standardHeaders: true, legacyHeaders: false }) : (_q, _s, n) => n()
+  const limiter = config.rateLimit ? rateLimit({ windowMs: 15 * 60 * 1000, limit: 30, standardHeaders: true, legacyHeaders: false, store: limiterStore(config.redis, 'auth') }) : (_q, _s, n) => n()
 
   async function issueTokens(user) {
     const accessToken = jwt.sign({ role: user.role, name: user.name }, config.jwtSecret, { subject: String(user.id), expiresIn: config.accessTtl })

@@ -3,7 +3,9 @@ import { z } from 'zod'
 import { HttpError, forbidden, notFound } from '../errors.js'
 import { wrap } from '../middleware/errors.js'
 import { requireRole } from '../middleware/auth.js'
-import { placeholders } from '../community/lib.js'
+import express from 'express'
+import { limiter, placeholders } from '../community/lib.js'
+import { imageKind } from '../ocr.js'
 
 const id = z.coerce.number().int().positive()
 const askBody = z.object({ courseId: z.number().int().positive(), title: z.string().trim().min(5).max(200), body: z.string().trim().max(5000).default('') })
@@ -13,7 +15,7 @@ const SELECT = `SELECT d.*, u.name AS student_name, c.code, c.title AS course_ti
   FROM doubts d JOIN users u ON u.id = d.student_id JOIN courses c ON c.id = d.course_id LEFT JOIN users t ON t.id = c.teacher_id`
 
 // Doubts live in a course: the enrolled students, the course teacher and admins can see them.
-export function doubtsRouter({ pool }) {
+export function doubtsRouter({ pool, notify, config, ocr }) {
   const r = Router()
 
   async function visibleCourseIds(user) {
@@ -62,6 +64,19 @@ export function doubtsRouter({ pool }) {
   }))
 
   // "Already solved, check before asking": up to 3 solved doubts sharing a longer word with the title.
+  // Reads the text from a photo of a question. The body is the raw image (PNG, JPEG, WebP or BMP, up to 5 MB).
+  // Nothing is stored; the student reviews the text before sending the doubt.
+  r.post('/ocr', requireRole('student'), limiter(config ?? {}, 'ocr'), express.raw({ type: ['image/png', 'image/jpeg', 'image/webp', 'image/bmp'], limit: '5mb' }), wrap(async (req, res) => {
+    if (!Buffer.isBuffer(req.body) || !req.body.length) throw new HttpError(400, 'Send the image as the request body (png, jpeg, webp or bmp)')
+    if (!imageKind(req.body)) throw new HttpError(400, 'That file is not a valid image')
+    if (!ocr) throw new HttpError(503, 'Reading images is not available on this server')
+    let out
+    try { out = await ocr.recognize(req.body) } catch (e) { console.error('ocr failed:', e.message); throw new HttpError(503, 'Could not read the image right now. Try again, or type the question.') }
+    const text = out.text.replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim().slice(0, 4000)
+    if (!text) throw new HttpError(422, 'No text found in the image. Try a clearer, closer photo.')
+    res.json({ text, confidence: out.confidence, lowConfidence: out.confidence < 60 })
+  }))
+
   r.get('/similar', wrap(async (req, res) => {
     const title = z.string().max(200).default('').parse(req.query.title)
     const words = [...new Set(title.toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length > 4))].slice(0, 6)
@@ -80,6 +95,7 @@ export function doubtsRouter({ pool }) {
     if (!c) throw forbidden('You are not enrolled in this course')
     if (!c.teacher_id) throw new HttpError(400, 'This course has no teacher assigned yet')
     const { rows } = await pool.query('INSERT INTO doubts (course_id, student_id, title, body) VALUES ($1, $2, $3, $4) RETURNING id', [b.courseId, req.user.id, b.title, b.body])
+    await notify([c.teacher_id], { kind: 'doubt', title: `New doubt: ${b.title}`, body: `${req.user.name} asked a doubt in your course.`, link: '/teacher/doubts' })
     res.status(201).json((await shape(req.user, [await visibleDoubt(req.user, rows[0].id)]))[0])
   }))
 
@@ -104,6 +120,7 @@ export function doubtsRouter({ pool }) {
     if (!canAnswer(req.user, d)) throw forbidden()
     const { answer } = answerBody.parse(req.body)
     await pool.query('UPDATE doubts SET answer = $2, answered_by = $3, answered_at = now() WHERE id = $1', [d.id, answer, req.user.id])
+    if (d.answered_at == null) await notify([d.student_id], { kind: 'doubt', title: 'Your doubt was answered', body: d.title, link: '/student/doubts' })
     res.json((await shape(req.user, [await visibleDoubt(req.user, d.id)]))[0])
   }))
 

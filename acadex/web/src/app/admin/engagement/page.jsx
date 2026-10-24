@@ -1,2 +1,2 @@
-import { ModuleUsage } from '../../../views/admin/Admin'
-export default function Page() { return <ModuleUsage /> }
+import UsageLive from '../../../views/admin/UsageLive'
+export default function Page() { return <UsageLive /> }

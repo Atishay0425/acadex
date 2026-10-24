@@ -1,2 +1,2 @@
-import { AlertRules } from '../../../views/admin/Admin'
-export default function Page() { return <AlertRules /> }
+import AlertRulesLive from '../../../views/admin/AlertRulesLive'
+export default function Page() { return <AlertRulesLive /> }

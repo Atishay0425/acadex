@@ -1,2 +1,2 @@
-import { CareerGuidance } from '../../../views/student/Guidance'
-export default function Page() { return <CareerGuidance /> }
+import Career from '../../../views/student/Career'
+export default function Page() { return <Career /> }

@@ -58,6 +58,43 @@ export async function api(path, opts = {}) {
   }
 }
 
+// Sends a file as the raw request body (used for photos of questions) and returns the JSON reply.
+export async function upload(path, file) {
+  const s = session.get()
+  if (!s) throw new ApiError(401, 'Not signed in')
+  const send = (token) => fetch(`${BASE}${path}`, { method: 'POST', headers: { 'Content-Type': file.type, Authorization: `Bearer ${token}` }, body: file })
+  let res = await send(s.accessToken)
+  if (res.status === 401) { const token = await refresh(); if (token) res = await send(token) }
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) throw new ApiError(res.status, data.error || `Request failed (${res.status})`, data.details)
+  return data
+}
+
+// Uploads a file (raw bytes, name in a header) and returns { id, name, mime, size } to attach to something.
+export async function uploadFile(file) {
+  const s = session.get()
+  if (!s) throw new ApiError(401, 'Not signed in')
+  const send = (token) => fetch(`${BASE}/files`, { method: 'POST', headers: { 'Content-Type': 'application/octet-stream', 'X-File-Name': encodeURIComponent(file.name), Authorization: `Bearer ${token}` }, body: file })
+  let res = await send(s.accessToken)
+  if (res.status === 401) { const token = await refresh(); if (token) res = await send(token) }
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) throw new ApiError(res.status, data.error || `Upload failed (${res.status})`, data.details)
+  return data
+}
+
+// Downloads an attached file through the signed-in session and saves it under its own name.
+export async function downloadFile(id, name) {
+  const s = session.get()
+  if (!s) throw new ApiError(401, 'Not signed in')
+  const get = (token) => fetch(`${BASE}/files/${id}`, { headers: { Authorization: `Bearer ${token}` } })
+  let res = await get(s.accessToken)
+  if (res.status === 401) { const token = await refresh(); if (token) res = await get(token) }
+  if (!res.ok) throw new ApiError(res.status, 'Could not download that file')
+  const url = URL.createObjectURL(await res.blob())
+  const a = Object.assign(document.createElement('a'), { href: url, download: name })
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 10000)
+}
+
 // Loads from the API. `offline` is true when there is no real session or the API is unreachable,
 // so views can show mock data with the "Demo data" badge. Real API errors (403, 500) surface in `error`.
 export function useRemote(path, deps = []) {
@@ -71,4 +108,12 @@ export function useRemote(path, deps = []) {
   }, [path]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { load() }, [load, ...deps]) // eslint-disable-line react-hooks/exhaustive-deps
   return { ...state, reload: load }
+}
+
+// The signed-in user, available after mount. Server rendering and the first client render both see null,
+// so what is drawn matches and React does not warn about a hydration mismatch.
+export function useSessionUser() {
+  const [user, setUser] = useState(null)
+  useEffect(() => { setUser(session.get()?.user ?? null) }, [])
+  return user
 }

@@ -1,2 +1,2 @@
-import { AdminDashboard } from '../../views/admin/Admin'
-export default function Page() { return <AdminDashboard /> }
+import DashboardLive from '../../views/admin/DashboardLive'
+export default function Page() { return <DashboardLive /> }

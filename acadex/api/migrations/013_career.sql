@@ -1,0 +1,7 @@
+CREATE TABLE career_profiles (
+  user_id INTEGER PRIMARY KEY REFERENCES users (id) ON DELETE CASCADE,
+  interests TEXT NOT NULL DEFAULT '[]',
+  skills TEXT NOT NULL DEFAULT '[]',
+  cgpa NUMERIC CHECK (cgpa BETWEEN 0 AND 10),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+)

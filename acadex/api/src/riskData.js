@@ -1,8 +1,10 @@
 import { assess } from './risk.js'
+import { loadRiskRules } from './settings.js'
 
 // Loads the raw signals for one scope ({ courseId } | { studentId } | {} for everyone) in four queries and
 // returns assess() results per student, overall and per course.
 export async function riskFor(pool, scope = {}) {
+  const rules = await loadRiskRules(pool)
   const f = (col) => (scope.courseId ? [`WHERE ${col.course} = $1`, [scope.courseId]] : scope.studentId ? [`WHERE ${col.student} = $1`, [scope.studentId]] : ['', []])
   const q = (sql, col) => { const [w, p] = f(col); return pool.query(sql.replace('{W}', w), p).then((r) => r.rows) }
 
@@ -19,8 +21,8 @@ export async function riskFor(pool, scope = {}) {
   const students = new Map()
   for (const p of people) {
     if (!students.has(p.student_id)) students.set(p.student_id, { studentId: p.student_id, name: p.name, email: p.email, courses: [] })
-    students.get(p.student_id).courses.push({ id: p.course_id, code: p.code, title: p.title, ...assess(signals((x) => x.course_id === p.course_id && x.student_id === p.student_id)) })
+    students.get(p.student_id).courses.push({ id: p.course_id, code: p.code, title: p.title, ...assess(signals((x) => x.course_id === p.course_id && x.student_id === p.student_id), new Date(), rules) })
   }
-  for (const s of students.values()) Object.assign(s, assess(signals((x) => x.student_id === s.studentId)))
+  for (const s of students.values()) Object.assign(s, assess(signals((x) => x.student_id === s.studentId), new Date(), rules))
   return [...students.values()]
 }

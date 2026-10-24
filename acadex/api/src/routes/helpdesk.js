@@ -19,7 +19,7 @@ const shape = (t) => ({
 })
 
 // Students raise tickets; admins (the front desk) route, answer and resolve them.
-export function helpdeskRouter({ pool, config }) {
+export function helpdeskRouter({ pool, config, notify }) {
   const r = Router()
   const create = limiter({ ...config }, 'ticket')
 
@@ -28,6 +28,7 @@ export function helpdeskRouter({ pool, config }) {
     if (!t || (user.role !== 'admin' && t.student_id !== user.id)) throw notFound('Ticket not found')
     return t
   }
+  const adminIds = async () => (await pool.query("SELECT id FROM users WHERE role = 'admin' AND is_active = TRUE")).rows.map((x) => x.id)
   const messages = async (ticketId) => (await pool.query('SELECT m.id, m.body, m.created_at, u.id AS author_id, u.name, u.role FROM ticket_messages m JOIN users u ON u.id = m.author_id WHERE m.ticket_id = $1 ORDER BY m.created_at, m.id', [ticketId])).rows
     .map((m) => ({ id: m.id, body: m.body, createdAt: m.created_at, author: { id: m.author_id, name: m.name, role: m.role } }))
 
@@ -48,6 +49,7 @@ export function helpdeskRouter({ pool, config }) {
     const b = createBody.parse(req.body)
     const { rows } = await pool.query('INSERT INTO tickets (student_id, category, department, title, details, priority) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id',
       [req.user.id, b.category, departmentFor(b.category), b.title, b.details, suggestPriority(`${b.title} ${b.details}`)])
+    await notify(await adminIds(), { kind: 'ticket', title: `New ticket: ${b.title}`, body: `${req.user.name} raised a ${b.category} ticket.`, link: '/admin/tickets' })
     res.status(201).json(shape(await visible(req.user, rows[0].id)))
   }))
 
@@ -64,6 +66,8 @@ export function helpdeskRouter({ pool, config }) {
     await pool.query('INSERT INTO ticket_messages (ticket_id, author_id, body) VALUES ($1, $2, $3)', [t.id, req.user.id, body])
     const next = req.user.role === 'admin' ? (t.status === 'open' ? 'in_progress' : t.status) : (t.status === 'resolved' ? 'open' : t.status)
     await pool.query('UPDATE tickets SET status = $2, resolved_at = $3, updated_at = now() WHERE id = $1', [t.id, next, next === 'resolved' ? t.resolved_at : null])
+    if (req.user.role === 'admin') await notify([t.student_id], { kind: 'ticket', title: `${ticketNumber(t.id)} has a new reply`, body, link: '/student/help' })
+    else await notify(await adminIds(), { kind: 'ticket', title: `${ticketNumber(t.id)}: student replied`, body, link: '/admin/tickets' })
     res.status(201).json({ messages: await messages(t.id), status: next })
   }))
 
@@ -73,6 +77,7 @@ export function helpdeskRouter({ pool, config }) {
     const status = b.status ?? t.status
     const resolvedAt = status === 'resolved' ? (t.status === 'resolved' ? t.resolved_at : new Date()) : null
     await pool.query('UPDATE tickets SET department = $2, status = $3, priority = $4, resolved_at = $5, updated_at = now() WHERE id = $1', [t.id, b.department ?? t.department, status, b.priority ?? t.priority, resolvedAt])
+    if (status !== t.status) await notify([t.student_id], { kind: 'ticket', title: `${ticketNumber(t.id)} is now ${status.replace('_', ' ')}`, body: t.title, link: '/student/help' })
     res.json(shape(await visible(req.user, t.id)))
   }))
 
@@ -83,7 +88,11 @@ export function helpdeskRouter({ pool, config }) {
     res.json({
       total: rows.length, open: rows.filter((x) => x.status === 'open').length, inProgress: rows.filter((x) => x.status === 'in_progress').length, resolved: resolved.length,
       avgResolutionHours: hours == null ? null : Math.round(hours * 10) / 10,
-      byDepartment: DEPARTMENTS.map((d) => ({ department: d, open: rows.filter((x) => x.department === d && x.status !== 'resolved').length, total: rows.filter((x) => x.department === d).length })),
+      byDepartment: DEPARTMENTS.map((d) => {
+        const mine = rows.filter((x) => x.department === d), done = mine.filter((x) => x.resolved_at)
+        const h = done.length ? done.reduce((a, x) => a + (new Date(x.resolved_at) - new Date(x.created_at)) / 3600000, 0) / done.length : null
+        return { department: d, open: mine.filter((x) => x.status !== 'resolved').length, total: mine.length, resolved: done.length, avgResolutionHours: h == null ? null : Math.round(h * 10) / 10 }
+      }),
     })
   }))
 

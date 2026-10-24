@@ -1,2 +1,2 @@
-import { ClassResources } from '../../../views/teacher/Teacher'
-export default function Page() { return <ClassResources /> }
+import ResourcesLive from '../../../views/teacher/ResourcesLive'
+export default function Page() { return <ResourcesLive /> }

@@ -19,7 +19,7 @@ const MAX_OWNED = 5
 
 // Project & Idea Hub: students post ideas, others ask to join, a faculty mentor reviews and guides, and the
 // team logs progress. Everything is visible to signed-in users so ideas can find teammates.
-export function projectsRouter({ pool }) {
+export function projectsRouter({ pool, notify }) {
   const r = Router()
 
   async function load(user, projectId) {
@@ -124,6 +124,7 @@ export function projectsRouter({ pool }) {
     const status = b.decision === 'approve' ? 'in_progress' : 'changes_requested'
     await pool.query('UPDATE projects SET status = $2, progress = $3, updated_at = now() WHERE id = $1', [p.id, status, b.decision === 'approve' ? Math.max(p.progress, 5) : p.progress])
     await pool.query('INSERT INTO project_updates (project_id, author_id, kind, body) VALUES ($1, $2, $3, $4)', [p.id, req.user.id, b.decision === 'approve' ? 'approved' : 'changes_requested', b.note])
+    await notify([p.owner_id], { kind: 'project', title: b.decision === 'approve' ? `${p.title} was approved` : `Changes requested on ${p.title}`, body: b.note, link: '/student/projects' })
     res.json(await one(req.user, p.id))
   }))
 
@@ -137,6 +138,7 @@ export function projectsRouter({ pool }) {
     const b = updateBody.parse(req.body)
     await pool.query('INSERT INTO project_updates (project_id, author_id, kind, body, progress) VALUES ($1, $2, $3, $4, $5)', [p.id, req.user.id, mentor ? 'feedback' : 'update', b.body, mentor ? null : b.progress ?? null])
     if (!mentor && b.progress != null) await pool.query('UPDATE projects SET progress = $2, updated_at = now() WHERE id = $1', [p.id, b.progress])
+    if (mentor) await notify([p.owner_id], { kind: 'project', title: `Mentor feedback on ${p.title}`, body: b.body, link: '/student/projects' })
     res.status(201).json(await one(req.user, p.id))
   }))
 
@@ -160,6 +162,7 @@ export function projectsRouter({ pool }) {
     if ((await pool.query('SELECT 1 FROM project_requests WHERE project_id = $1 AND student_id = $2', [p.id, req.user.id])).rows.length) throw new HttpError(409, 'You already asked to join this project')
     const { message } = z.object({ message: z.string().trim().max(500).default('') }).parse(req.body)
     await pool.query('INSERT INTO project_requests (project_id, student_id, message) VALUES ($1, $2, $3)', [p.id, req.user.id, message])
+    await notify([p.owner_id], { kind: 'project', title: `${req.user.name} wants to join ${p.title}`, body: message, link: '/student/projects' })
     res.status(201).json({ status: 'pending' })
   }))
 
@@ -182,6 +185,7 @@ export function projectsRouter({ pool }) {
       await pool.query('INSERT INTO project_members (project_id, user_id) VALUES ($1, $2)', [p.id, q.student_id])
     }
     await pool.query('UPDATE project_requests SET status = $2 WHERE id = $1', [q.id, accept ? 'accepted' : 'declined'])
+    await notify([q.student_id], { kind: 'project', title: accept ? `You joined ${p.title}` : `Your request to join ${p.title} was declined`, link: '/student/projects' })
     res.json(await one(req.user, p.id))
   }))
 

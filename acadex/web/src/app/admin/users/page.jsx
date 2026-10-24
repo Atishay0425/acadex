@@ -1,2 +1,2 @@
-import { UsersRoles } from '../../../views/admin/Admin'
-export default function Page() { return <UsersRoles /> }
+import UsersLive from '../../../views/admin/UsersLive'
+export default function Page() { return <UsersLive /> }

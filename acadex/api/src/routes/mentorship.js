@@ -16,7 +16,7 @@ const MAX_PENDING = 10
 
 // Senior-junior mentorship. Any student can opt in as a mentor; juniors ask them questions (optionally
 // anonymously), mentors answer, and the asker rates helpful answers. Admins can hide a mentor profile.
-export function mentorshipRouter({ pool }) {
+export function mentorshipRouter({ pool, notify }) {
   const r = Router()
 
   const mentorShape = (p, stats, me) => ({
@@ -85,6 +85,7 @@ export function mentorshipRouter({ pool }) {
     const open = Number((await pool.query('SELECT COUNT(*) AS n FROM mentor_questions WHERE asker_id = $1 AND answered_at IS NULL', [req.user.id])).rows[0].n)
     if (open >= MAX_PENDING) throw new HttpError(400, `You already have ${MAX_PENDING} unanswered questions. Wait for replies first.`)
     const { rows } = await pool.query('INSERT INTO mentor_questions (asker_id, mentor_id, text, is_anonymous) VALUES ($1, $2, $3, $4) RETURNING id', [req.user.id, b.mentorId, b.text, b.anonymous])
+    await notify([b.mentorId], { kind: 'mentorship', title: 'A junior asked you a question', body: b.text, link: '/student/mentorship' })
     res.status(201).json(asAsker((await pool.query(`${QSELECT} WHERE q.id = $1`, [rows[0].id])).rows[0]))
   }))
 
@@ -100,6 +101,7 @@ export function mentorshipRouter({ pool }) {
     if (!q) throw notFound('Question not found')
     const { answer } = z.object({ answer: z.string().trim().min(2).max(3000) }).parse(req.body)
     await pool.query('UPDATE mentor_questions SET answer = $2, answered_at = COALESCE(answered_at, now()) WHERE id = $1', [q.id, answer])
+    if (!q.answered_at) await notify([q.asker_id], { kind: 'mentorship', title: 'Your mentor answered your question', body: answer, link: '/student/mentorship' })
     res.json(asMentor((await pool.query(`${QSELECT} WHERE q.id = $1`, [q.id])).rows[0]))
   }))
 

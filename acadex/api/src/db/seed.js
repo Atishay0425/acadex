@@ -84,6 +84,8 @@ export async function seed(pool, password = process.env.DEMO_PASSWORD || crypto.
   await seedCounselling(pool, ids)
   await seedMentorship(pool, ids)
   await seedProjects(pool, ids)
+  await seedCareer(pool, ids)
+  await seedResources(pool, ids)
   await seedCommunity(pool, ids)
   return password
 }
@@ -114,12 +116,6 @@ async function seedCommunity(pool, ids) {
   }
 }
 
-if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  const pool = createPool(loadConfig().databaseUrl)
-  const pw = await seed(pool)
-  console.log(`Seeded demo users (admin@college.edu, neha.verma@college.edu, aarav.sharma@college.edu, ...). Password: ${pw}`)
-  await pool.end()
-}
 
 const DAY = 86400000
 async function seedAssignments(pool, ids) {
@@ -189,4 +185,26 @@ async function seedProjects(pool, ids) {
   await add('diya.patel@college.edu', 'rahul.iyer@college.edu', 'Hostel Mess Feedback Analyzer', 'Sentiment dashboard for daily mess feedback.', ['Python', 'NLP'], 0, 'completed', 100)
   await pool.query('INSERT INTO project_updates (project_id, author_id, kind, body, progress) VALUES ($1, $2, $3, $4, $5)', [att, ids['neha.verma@college.edu'], 'approved', 'Good scope. Start with a small labelled dataset.', null])
   await pool.query('INSERT INTO project_updates (project_id, author_id, kind, body, progress) VALUES ($1, $2, $3, $4, $5)', [att, ids['diya.patel@college.edu'], 'update', 'Face detection works on test frames; collecting more data.', 60])
+}
+
+async function seedCareer(pool, ids) {
+  if ((await pool.query('SELECT 1 FROM career_profiles')).rows.length) return
+  await pool.query('INSERT INTO career_profiles (user_id, interests, skills, cgpa) VALUES ($1, $2, $3, $4)', [ids['aarav.sharma@college.edu'], JSON.stringify(['machine learning', 'web development']), JSON.stringify(['python', 'react', 'sql']), 7.8])
+}
+
+async function seedResources(pool, ids) {
+  if ((await pool.query('SELECT 1 FROM resources')).rows.length) return
+  const course = (await pool.query("SELECT id FROM courses WHERE code = 'CE301'")).rows[0]
+  const teacher = ids['neha.verma@college.edu']
+  await pool.query("INSERT INTO resources (course_id, teacher_id, title, kind, content) VALUES ($1, $2, 'Unit 2: Linked lists and stacks', 'note', $3)", [course.id, teacher,
+    'A linked list stores elements in nodes that each point to the next node. Insertion and deletion at the head take constant time. A doubly linked list also stores a pointer to the previous node, which makes deleting a known node constant time. A stack is a last in first out structure with push and pop operations. A queue is a first in first out structure with enqueue and dequeue operations. Arrays give constant time indexing while linked lists give cheap insertion in the middle.'])
+  await pool.query("INSERT INTO resources (course_id, teacher_id, title, kind, content, url) VALUES ($1, $2, 'Visualising data structures', 'link', 'Interactive animations for lists, trees and graphs.', 'https://visualgo.net/en')", [course.id, teacher])
+}
+
+// Runs last: top-level await here would otherwise execute before the constants declared above it.
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  const pool = createPool(loadConfig().databaseUrl)
+  const pw = await seed(pool)
+  console.log(`Seeded demo users (admin@college.edu, neha.verma@college.edu, aarav.sharma@college.edu, ...). Password: ${pw}`)
+  await pool.end()
 }

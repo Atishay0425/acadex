@@ -34,7 +34,7 @@ test('missing data adds nothing, and the worst case is capped at 100', () => {
 })
 
 test('level thresholds', () => {
-  assert.deepEqual([29, 30, 59, 60].map(levelOf), ['low', 'medium', 'medium', 'high'])
+  assert.deepEqual([29, 30, 59, 60].map((s) => levelOf(s)), ['low', 'medium', 'medium', 'high'])
 })
 
 // A course where `student` struggles and `student2` is fine.
@@ -102,6 +102,8 @@ test('admin overview: distribution, intervention counts and flagged students wit
   const ctx = await setup(); const c = await scenario(ctx)
   let o = (await ctx.as('admin').get('/risk/overview')).body
   assert.deepEqual([o.total, o.distribution.high, o.flaggedWithoutAction], [2, 1, 1])
+  assert.deepEqual(o.driverCounts.map((d) => [d.key, d.students]), [['attendance', 1], ['marks', 1], ['assignments', 2], ['trend', 0]])
+  assert.ok(o.meanScore > 0)
   await ctx.as('teacher').post('/risk/interventions', { courseId: c.id, studentId: ctx.ids.student, action: 'reminder' })
   o = (await ctx.as('admin').get('/risk/overview')).body
   assert.deepEqual([o.interventions.total, o.interventions.open, o.flaggedWithoutAction], [1, 1, 0])

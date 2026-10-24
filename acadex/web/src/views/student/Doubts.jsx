@@ -1,8 +1,8 @@
 'use client'
-import { useEffect, useState } from 'react'
-import { MessageCircleQuestion, ThumbsUp, Search, Plus, CheckCircle2, Send, WifiOff, Trash2 } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { MessageCircleQuestion, ThumbsUp, Search, Plus, CheckCircle2, Send, WifiOff, Trash2, Camera } from 'lucide-react'
 import { PageHeader, Card, Badge, Modal, Field, Tabs, Empty, useToast } from '../../components/ui'
-import { api, useRemote } from '../../lib/acadex'
+import { api, upload, useRemote } from '../../lib/acadex'
 import { errorText } from '../../lib/classes'
 import { DoubtDesk as MockDoubtDesk } from './Learn'
 
@@ -27,6 +27,9 @@ export default function Doubts() {
   const courses = useRemote('/courses')
   const [asking, setAsking] = useState(false)
   const [form, setForm] = useState({ courseId: '', title: '', body: '' })
+  const photo = useRef(null)
+  const [reading, setReading] = useState(false)
+  const [ocrNote, setOcrNote] = useState(null)
   const title = useDebounced(form.title, 400)
   const similar = useRemote(`/doubts/similar?title=${encodeURIComponent(asking ? title : '')}`)
 
@@ -40,10 +43,21 @@ export default function Doubts() {
   const upvote = async (d) => {
     try { await api(`/doubts/${d.id}/upvote`, { method: 'POST' }); reloadAll() } catch (e) { toast(errorText(e)) }
   }
+  // Reads a photo of the question and puts the text into the form for the student to check and edit.
+  const readPhoto = async (file) => {
+    if (!file) return
+    if (file.size > 5 * 1024 * 1024) return toast('Photos must be 5 MB or smaller')
+    setReading(true); setOcrNote(null)
+    try {
+      const r = await upload('/doubts/ocr', file)
+      setForm((f) => ({ ...f, title: f.title || r.text.split('\n').find(Boolean).slice(0, 200), body: r.text }))
+      setOcrNote(r.lowConfidence ? 'The photo was hard to read. Please check every word.' : `Read from your photo (${r.confidence}% sure). Check it before sending.`)
+    } catch (e) { toast(errorText(e)) } finally { setReading(false) }
+  }
   const submit = async () => {
     try {
       const d = await api('/doubts', { method: 'POST', body: { courseId: Number(form.courseId || enrolled[0]?.id), title: form.title, body: form.body } })
-      setAsking(false); setForm({ courseId: '', title: '', body: '' }); toast(`Doubt sent to ${d.teacher.name}`); reloadAll()
+      setAsking(false); setOcrNote(null); setForm({ courseId: '', title: '', body: '' }); toast(`Doubt sent to ${d.teacher.name}`); reloadAll()
     } catch (e) { toast(errorText(e)) }
   }
   const withdraw = async (d) => {
@@ -102,6 +116,9 @@ export default function Doubts() {
           </div>
         )}
         <Field label="Details"><textarea className="input min-h-24" value={form.body} onChange={(e) => setForm({ ...form, body: e.target.value })} placeholder="Add context so the teacher can answer in one go" /></Field>
+        <input ref={photo} type="file" accept="image/png,image/jpeg,image/webp,image/bmp" className="hidden" onChange={(e) => { readPhoto(e.target.files[0]); e.target.value = '' }} />
+        <button className="btn-ghost w-full" disabled={reading} onClick={() => photo.current.click()}><Camera size={15} /> {reading ? 'Reading the photo…' : 'Attach a photo of the question'}</button>
+        {ocrNote && <p className="mt-2 text-xs font-semibold text-primary">{ocrNote}</p>}
       </Modal>
       {node}
     </>

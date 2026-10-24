@@ -16,7 +16,7 @@ const ACTIVE = ['requested', 'confirmed']
 
 // Counsellors are teachers an admin has flagged. Students book their free slots; an anonymous booking hides
 // the student's name from the counsellor in the app. Counsellor notes stay private to the counsellor.
-export function counsellingRouter({ pool }) {
+export function counsellingRouter({ pool, notify }) {
   const r = Router()
   const needCounsellor = (req, _res, next) => (req.user.role === 'teacher' ? pool.query('SELECT is_counsellor FROM users WHERE id = $1', [req.user.id]).then((x) => (x.rows[0]?.is_counsellor ? next() : next(forbidden('You are not set up as a counsellor')))).catch(next) : next(forbidden('You are not set up as a counsellor')))
 
@@ -74,6 +74,7 @@ export function counsellingRouter({ pool }) {
     try {
       row = (await pool.query('INSERT INTO counselling_sessions (student_id, counsellor_id, slot_id, starts_at, type, topic, is_anonymous) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id', [req.user.id, sl.counsellor_id, sl.id, sl.starts_at, b.type, b.topic, b.anonymous])).rows[0]
     } catch (e) { if (e.code === '23505') throw new HttpError(409, 'That slot was just taken. Pick another.'); throw e }
+    await notify([sl.counsellor_id], { kind: 'counselling', title: 'New counselling request', body: `${b.type} session on ${new Date(sl.starts_at).toUTCString()}`, link: '/teacher/counselling' })
     res.status(201).json(forStudent((await sessionRows('WHERE s.id = $1', [row.id]))[0]))
   }))
 
@@ -89,6 +90,7 @@ export function counsellingRouter({ pool }) {
     if (!s) throw notFound('Session not found')
     if (!ACTIVE.includes(s.status)) throw new HttpError(409, 'This session can no longer be cancelled')
     await pool.query("UPDATE counselling_sessions SET status = 'cancelled', slot_id = NULL WHERE id = $1", [s.id])
+    await notify([s.counsellor_id], { kind: 'counselling', title: 'A session was cancelled', body: 'A student cancelled their booking.', link: '/teacher/counselling' })
     res.json({ status: 'cancelled' })
   }))
 
@@ -100,6 +102,7 @@ export function counsellingRouter({ pool }) {
     if (s.status === 'cancelled') throw new HttpError(409, 'This session was cancelled')
     const status = b.status ?? s.status
     await pool.query('UPDATE counselling_sessions SET status = $2, counsellor_note = $3, follow_up = $4, slot_id = $5 WHERE id = $1', [s.id, status, b.note ?? s.counsellor_note, b.followUp ?? s.follow_up, status === 'cancelled' ? null : s.slot_id])
+    if (status !== s.status) await notify([s.student_id], { kind: 'counselling', title: `Your counselling session is ${status}`, body: b.followUp ?? s.follow_up, link: '/student/counselling' })
     res.json(forCounsellor((await sessionRows('WHERE s.id = $1', [s.id]))[0]))
   }))
 

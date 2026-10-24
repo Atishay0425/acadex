@@ -13,13 +13,22 @@ const assignmentBody = z.object({
   dueAt: z.string().datetime({ offset: true }),
   maxMarks: z.number().positive().max(1000),
 })
-const submitBody = z.object({ content: z.string().trim().max(10000).default(''), link: httpUrl.nullable().optional() })
-  .refine((b) => b.content || b.link, 'Add some text or a link')
+const submitBody = z.object({ content: z.string().trim().max(10000).default(''), link: httpUrl.nullable().optional(), fileIds: z.array(z.number().int().positive()).max(3).default([]) })
+  .refine((b) => b.content || b.link || b.fileIds.length, 'Add some text, a link or a file')
 const gradeBody = z.object({ score: z.number().min(0), feedback: z.string().trim().max(2000).default('') })
 
 const shape = (a, extra = {}) => ({ id: a.id, title: a.title, description: a.description, dueAt: a.due_at, maxMarks: Number(a.max_marks), ...extra })
-const subShape = (s) => (s ? { content: s.content, link: s.link, submittedAt: s.submitted_at, isLate: s.is_late, score: s.score == null ? null : Number(s.score), feedback: s.feedback, gradedAt: s.graded_at } : null)
+const subShape = (s, files = []) => (s ? { files, content: s.content, link: s.link, submittedAt: s.submitted_at, isLate: s.is_late, score: s.score == null ? null : Number(s.score), feedback: s.feedback, gradedAt: s.graded_at } : null)
 const statusOf = (a, s, now = new Date()) => (s ? (s.score != null ? 'graded' : s.is_late ? 'late' : 'submitted') : new Date(a.due_at) <= now ? 'overdue' : 'pending')
+
+// The files attached to each of the given submissions: Map(submissionId -> [{ id, name, size, mime }]).
+async function filesBySubmission(pool, submissionIds) {
+  const out = new Map(submissionIds.map((i) => [i, []]))
+  if (!submissionIds.length) return out
+  const rows = (await pool.query(`SELECT sf.submission_id, f.id, f.original_name, f.size, f.mime FROM submission_files sf JOIN files f ON f.id = sf.file_id WHERE sf.submission_id IN (${submissionIds.map((_, i) => `$${i + 1}`).join(', ')}) ORDER BY f.id`, submissionIds)).rows
+  for (const x of rows) out.get(x.submission_id).push({ id: x.id, name: x.original_name, size: x.size, mime: x.mime })
+  return out
+}
 
 // A student's assignments across their courses (optionally one course), soonest due first.
 async function studentAssignments(pool, userId, courseId) {
@@ -27,7 +36,8 @@ async function studentAssignments(pool, userId, courseId) {
     `SELECT a.*, c.code, c.title AS course_title FROM assignments a JOIN courses c ON c.id = a.course_id
      JOIN enrollments e ON e.course_id = a.course_id WHERE e.student_id = $1 ${courseId ? 'AND a.course_id = $2' : ''} ORDER BY a.due_at, a.id`, courseId ? [userId, courseId] : [userId])).rows
   const subs = new Map((await pool.query('SELECT s.* FROM submissions s JOIN assignments a ON a.id = s.assignment_id JOIN enrollments e ON e.course_id = a.course_id AND e.student_id = s.student_id WHERE s.student_id = $1', [userId])).rows.map((s) => [s.assignment_id, s]))
-  return rows.map((a) => shape(a, { course: { id: a.course_id, code: a.code, title: a.course_title }, status: statusOf(a, subs.get(a.id)), submission: subShape(subs.get(a.id)) }))
+  const attached = await filesBySubmission(pool, [...subs.values()].map((s) => s.id))
+  return rows.map((a) => shape(a, { course: { id: a.course_id, code: a.code, title: a.course_title }, status: statusOf(a, subs.get(a.id)), submission: subShape(subs.get(a.id), subs.get(a.id) ? attached.get(subs.get(a.id).id) : []) }))
 }
 
 export function myAssignmentsRouter({ pool }) {
@@ -36,7 +46,7 @@ export function myAssignmentsRouter({ pool }) {
   return r
 }
 
-export function assignmentsRouter({ pool }) {
+export function assignmentsRouter({ pool, notify }) {
   const r = Router({ mergeParams: true })
   const course = (req) => loadCourse(pool, id.parse(req.params.courseId))
   async function loadAssignment(c, aid) {
@@ -59,6 +69,8 @@ export function assignmentsRouter({ pool }) {
     const c = await course(req); assertManage(req.user, c)
     const b = assignmentBody.parse(req.body)
     const a = (await pool.query('INSERT INTO assignments (course_id, title, description, due_at, max_marks, created_by) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *', [c.id, b.title, b.description, b.dueAt, b.maxMarks, req.user.id])).rows[0]
+    const students = (await pool.query('SELECT student_id FROM enrollments WHERE course_id = $1', [c.id])).rows.map((x) => x.student_id)
+    await notify(students, { kind: 'assignment', title: `New assignment: ${b.title}`, body: `${c.code}, due ${new Date(b.dueAt).toUTCString()}`, link: '/student/assignments' })
     res.status(201).json(shape(a, { submitted: 0, graded: 0 }))
   }))
 
@@ -94,7 +106,8 @@ export function assignmentsRouter({ pool }) {
     const a = await loadAssignment(c, id.parse(req.params.aid))
     const students = (await pool.query('SELECT u.id, u.name, u.email FROM enrollments e JOIN users u ON u.id = e.student_id WHERE e.course_id = $1 ORDER BY u.name', [c.id])).rows
     const subs = new Map((await pool.query('SELECT * FROM submissions WHERE assignment_id = $1', [a.id])).rows.map((s) => [s.student_id, s]))
-    res.json({ assignment: shape(a), students: students.map((s) => ({ studentId: s.id, name: s.name, email: s.email, status: statusOf(a, subs.get(s.id)), submission: subShape(subs.get(s.id)) })) })
+    const attached = await filesBySubmission(pool, [...subs.values()].map((s) => s.id))
+    res.json({ assignment: shape(a), students: students.map((s) => ({ studentId: s.id, name: s.name, email: s.email, status: statusOf(a, subs.get(s.id)), submission: subShape(subs.get(s.id), subs.get(s.id) ? attached.get(subs.get(s.id).id) : []) })) })
   }))
 
   r.put('/:aid/submissions/:studentId/grade', requireRole('teacher', 'admin'), wrap(async (req, res) => {
@@ -106,6 +119,7 @@ export function assignmentsRouter({ pool }) {
     const sub = (await pool.query('SELECT id FROM submissions WHERE assignment_id = $1 AND student_id = $2', [a.id, studentId])).rows[0]
     if (!sub) throw new HttpError(400, 'This student has not submitted yet')
     await pool.query('UPDATE submissions SET score = $2, feedback = $3, graded_at = now(), graded_by = $4 WHERE id = $1', [sub.id, b.score, b.feedback, req.user.id])
+    await notify([studentId], { kind: 'assignment', title: `${a.title} was graded`, body: `Score ${b.score} / ${Number(a.max_marks)}${b.feedback ? `. ${b.feedback}` : ''}`, link: '/student/assignments' })
     res.json({ studentId, score: b.score })
   }))
 
@@ -117,8 +131,19 @@ export function assignmentsRouter({ pool }) {
     const late = new Date(a.due_at) < new Date()
     const cur = (await pool.query('SELECT id, score, is_late FROM submissions WHERE assignment_id = $1 AND student_id = $2', [a.id, req.user.id])).rows[0]
     if (cur?.score != null) throw new HttpError(409, 'This submission has been graded and can no longer be changed')
+    // Attached files must be the student's own uploads and not used anywhere else.
+    if (b.fileIds.length) {
+      const ph = b.fileIds.map((_, i) => `$${i + 2}`).join(', ')
+      const own = (await pool.query(`SELECT id FROM files WHERE owner_id = $1 AND id IN (${ph})`, [req.user.id, ...b.fileIds])).rows
+      if (own.length !== new Set(b.fileIds).size) throw new HttpError(400, 'One of the files is not one of your uploads')
+      const taken = (await pool.query(`SELECT file_id FROM submission_files WHERE submission_id <> $1 AND file_id IN (${b.fileIds.map((_, i) => `$${i + 2}`).join(', ')})`, [cur?.id ?? 0, ...b.fileIds])).rows
+      if (taken.length || (await pool.query(`SELECT 1 FROM resources WHERE file_id IN (${b.fileIds.map((_, i) => `$${i + 1}`).join(', ')})`, b.fileIds)).rows.length) throw new HttpError(400, 'That file is already attached somewhere else')
+    }
+    let sid = cur?.id
     if (cur) await pool.query('UPDATE submissions SET content = $2, link = $3, submitted_at = now(), is_late = $4 WHERE id = $1', [cur.id, b.content, b.link ?? null, late])
-    else await pool.query('INSERT INTO submissions (assignment_id, student_id, content, link, is_late) VALUES ($1, $2, $3, $4, $5)', [a.id, req.user.id, b.content, b.link ?? null, late])
+    else sid = (await pool.query('INSERT INTO submissions (assignment_id, student_id, content, link, is_late) VALUES ($1, $2, $3, $4, $5) RETURNING id', [a.id, req.user.id, b.content, b.link ?? null, late])).rows[0].id
+    await pool.query('DELETE FROM submission_files WHERE submission_id = $1', [sid])
+    for (const fid of new Set(b.fileIds)) await pool.query('INSERT INTO submission_files (submission_id, file_id) VALUES ($1, $2)', [sid, fid])
     res.status(cur ? 200 : 201).json({ isLate: late })
   }))
 

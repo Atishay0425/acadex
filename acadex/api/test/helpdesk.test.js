@@ -75,7 +75,7 @@ test('admin stats by status and department', async () => {
   await ctx.as('admin').patch(`/helpdesk/tickets/${a.id}`, { status: 'resolved' })
   const s = (await ctx.as('admin').get('/helpdesk/stats')).body
   assert.deepEqual([s.total, s.open, s.resolved, s.avgResolutionHours != null], [2, 1, 1, true])
-  assert.deepEqual(s.byDepartment.find((d) => d.department === 'IT Services'), { department: 'IT Services', open: 1, total: 1 })
+  assert.deepEqual(s.byDepartment.find((d) => d.department === 'IT Services'), { department: 'IT Services', open: 1, total: 1, resolved: 0, avgResolutionHours: null })
   assert.equal((await ctx.as('student').get('/helpdesk/stats')).status, 403)
 })
 

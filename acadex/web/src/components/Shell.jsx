@@ -1,14 +1,16 @@
 'use client'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { signOut } from '../lib/auth'
+import { session } from '../lib/acadex'
 import {
   LayoutDashboard, MessageCircleQuestion, NotebookPen, CalendarCheck, LineChart, BellRing, HeartHandshake,
-  Compass, Users, MessagesSquare, Lightbulb, LifeBuoy, GraduationCap, Search, Bell, Menu, LogOut, ChevronDown,
-  ShieldAlert, ClipboardList, FolderKanban, Settings, BarChart3, Building2, UserCog, Brain, Inbox, BookOpen, School, Library, CalendarDays, ClipboardCheck, ListChecks, FileText, HeartPulse,
+  Compass, Users, MessagesSquare, Lightbulb, LifeBuoy, GraduationCap, Search, Menu, LogOut, ChevronDown,
+  ShieldAlert, ClipboardList, FolderKanban, Settings, BarChart3, Building2, UserCog, Brain, Inbox, BookOpen, School, Library, CalendarDays, ClipboardCheck, ListChecks, FileText, HeartPulse, FolderOpen,
 } from 'lucide-react'
 import { Avatar, cx } from './ui'
+import NotificationBell from './NotificationBell'
 import { me } from '../data/mock'
 
 const NAV = {
@@ -19,6 +21,7 @@ const NAV = {
       { to: 'assignments', label: 'Assignments', icon: FileText },
       { to: 'doubts', label: 'Faculty Doubt Desk', icon: MessageCircleQuestion },
       { to: 'notes', label: 'Smart Notes', icon: NotebookPen },
+      { to: 'resources', label: 'Class Resources', icon: FolderOpen },
       { to: 'planner', label: 'Study Planner', icon: CalendarCheck },
     ] },
     { group: 'Stay on track', items: [
@@ -59,7 +62,7 @@ const NAV = {
     { group: null, items: [{ to: '', label: 'Analytics Dashboard', icon: LayoutDashboard, end: true }] },
     { group: 'Insights', items: [
       { to: 'risk', label: 'Risk & Interventions', icon: ShieldAlert },
-      { to: 'model', label: 'Model Monitoring', icon: Brain },
+      { to: 'model', label: 'Risk Monitoring', icon: Brain },
       { to: 'engagement', label: 'Module Usage', icon: BarChart3 },
     ] },
     { group: 'Operations', items: [
@@ -82,7 +85,10 @@ export default function Shell({ role, children }) {
   const [menu, setMenu] = useState(false)
   const router = useRouter()
   const pathname = usePathname()
-  const user = me[role]
+  // The signed-in person when the API login was used; the demo user otherwise.
+  const [real, setReal] = useState(null)
+  useEffect(() => { setReal(session.get()?.user ?? null) }, [])
+  const user = real ? { name: real.name, id: real.email } : me[role]
   const base = `/${role}`
 
   return (
@@ -100,10 +106,7 @@ export default function Shell({ role, children }) {
           <input className="w-full bg-transparent text-sm text-white outline-none placeholder:text-white/60" placeholder="Search doubts, notes, students, tickets…" />
         </div>
         <div className="ml-auto flex items-center gap-1">
-          <button className="relative rounded p-2 hover:bg-white/10">
-            <Bell size={18} />
-            <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-secondary-light" />
-          </button>
+          <NotificationBell />
           <div className="relative">
             <button onClick={() => setMenu(!menu)} className="flex items-center gap-2 rounded px-2 py-1 hover:bg-white/10">
               <Avatar name={user.name} size={28} tone="secondary" />

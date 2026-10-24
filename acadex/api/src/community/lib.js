@@ -1,4 +1,5 @@
 import rateLimit from 'express-rate-limit'
+import { limiterStore } from '../redis.js'
 
 export const isModerator = (u) => u.role === 'teacher' || u.role === 'admin'
 
@@ -16,11 +17,11 @@ export const authorOf = (row, viewer, hideable = false) =>
     : { id: row.author_id, name: row.author_name, role: row.author_role }
 
 // Per-scope limits like the Django service (post 30/hour, vote 120/min, flag 20/hour), keyed by user.
-const LIMITS = { post: [60 * 60 * 1000, 30], vote: [60 * 1000, 120], flag: [60 * 60 * 1000, 20], ticket: [60 * 60 * 1000, 10] }
+const LIMITS = { post: [60 * 60 * 1000, 30], vote: [60 * 1000, 120], flag: [60 * 60 * 1000, 20], ticket: [60 * 60 * 1000, 10], ocr: [60 * 60 * 1000, 30], upload: [60 * 60 * 1000, 40] }
 export function limiter(config, scope) {
   if (!config.rateLimit) return (_q, _s, next) => next()
   const [windowMs, limit] = LIMITS[scope]
-  return rateLimit({ windowMs, limit, standardHeaders: true, legacyHeaders: false, keyGenerator: (req) => `${scope}:${req.user.id}`, validate: { keyGeneratorIpFallback: false } })
+  return rateLimit({ windowMs, limit, standardHeaders: true, legacyHeaders: false, store: limiterStore(config.redis, scope), keyGenerator: (req) => `${scope}:${req.user.id}`, validate: { keyGeneratorIpFallback: false } })
 }
 
 // Two queries for the whole page, however many rows: grouped counts, then the viewer's own votes.

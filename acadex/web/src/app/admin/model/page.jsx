@@ -1,2 +1,2 @@
-import { ModelMonitoring } from '../../../views/admin/Admin'
-export default function Page() { return <ModelMonitoring /> }
+import MonitoringLive from '../../../views/admin/MonitoringLive'
+export default function Page() { return <MonitoringLive /> }

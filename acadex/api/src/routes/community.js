@@ -26,7 +26,7 @@ const answerBody = z.object({ content: z.string().trim().min(1).max(10000) })
 const commentBody = z.object({ content: z.string().trim().min(1).max(2000), parentId: z.number().int().positive().nullable().optional() })
 const roomBody = z.object({ name: z.string().trim().min(2).max(120), kind: z.enum(['branch', 'general']).default('general'), description: z.string().trim().max(500).default('') })
 
-export function communityRouter({ pool, config }) {
+export function communityRouter({ pool, config, notify }) {
   const r = Router()
   const post = limiter(config, 'post'), vote = limiter(config, 'vote'), flag = limiter(config, 'flag')
 
@@ -310,6 +310,7 @@ export function communityRouter({ pool, config }) {
     if (p.is_hidden) throw new HttpError(400, 'This post is not accepting answers.')
     const b = answerBody.parse(req.body)
     const a = (await pool.query('INSERT INTO answers (post_id, author_id, content) VALUES ($1, $2, $3) RETURNING id', [p.id, req.user.id, b.content])).rows[0]
+    if (p.author_id !== req.user.id) await notify([p.author_id], { kind: 'community', title: `New answer on “${p.title}”`, body: b.content, link: '/student/community' })
     res.status(201).json({ id: a.id })
   }))
 
