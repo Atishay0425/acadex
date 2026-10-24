@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { FileText, WifiOff, Plus, Trash2, ExternalLink, Download } from 'lucide-react'
 import { PageHeader, Card, Badge, Table, Modal, Field, Empty, useToast, cx } from '../../components/ui'
+import { PreviewButton } from '../../components/FilePreview'
 import { api, useRemote, downloadFile } from '../../lib/acadex'
 import { errorText, fmtDue, inDays, toIso, fmtSize } from '../../lib/classes'
 
@@ -107,7 +108,7 @@ function Submissions({ course, assignment, toast, onGraded }) {
                 <>
                   {s.submission.content && <p className="mt-1 whitespace-pre-wrap text-sm text-gray-700">{s.submission.content}</p>}
                   {s.submission.link && <a className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-primary" href={s.submission.link} target="_blank" rel="noreferrer noopener"><ExternalLink size={12} />{s.submission.link}</a>}
-                  {s.submission.files?.length > 0 && <div className="mt-1 flex flex-wrap gap-2">{s.submission.files.map((f) => <button key={f.id} className="inline-flex items-center gap-1 rounded bg-primary-50 px-2 py-1 text-xs font-semibold text-primary" onClick={() => downloadFile(f.id, f.name).catch((e) => toast(errorText(e)))}><Download size={12} />{f.name} · {fmtSize(f.size)}</button>)}</div>}
+                  {s.submission.files?.length > 0 && <div className="mt-1 flex flex-wrap gap-2">{s.submission.files.map((f) => <span key={f.id} className="inline-flex items-center gap-1"><button className="inline-flex items-center gap-1 rounded bg-primary-50 px-2 py-1 text-xs font-semibold text-primary" onClick={() => downloadFile(f.id, f.name).catch((e) => toast(errorText(e)))}><Download size={12} />{f.name} · {fmtSize(f.size)}</button><PreviewButton file={f} className="rounded bg-primary-50 px-2 py-1 text-xs font-semibold text-primary" /></span>)}</div>}
                   <div className="mt-2 flex flex-wrap items-center gap-2">
                     <input className="input w-20 text-right" inputMode="decimal" aria-label={`Score for ${s.name}`} placeholder="Score" value={draft[s.studentId]?.score ?? ''} onChange={(e) => setDraft({ ...draft, [s.studentId]: { ...draft[s.studentId], score: e.target.value } })} />
                     <span className="text-sm text-gray-500">/ {max}</span>

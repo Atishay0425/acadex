@@ -56,6 +56,25 @@ test('assignment files: the student attaches, the teacher downloads, outsiders c
   assert.equal((await ctx.as('admin').download(f.id)).status, 200)
 })
 
+test('preview: PDFs, images and text show inline with locked-down headers, Office files and non-owners still cannot', async () => {
+  const ctx = await setup(); const c = await classroom(ctx)
+  const a = (await ctx.as('teacher').post(`/courses/${c.id}/assignments`, { title: 'Lab 1', dueAt: new Date(Date.now() + 86400000).toISOString(), maxMarks: 10 })).body
+  const ids = []
+  for (const [name, buf] of [['lab.pdf', pdf], ['shot.png', png], ['notes.md', Buffer.from('# hi <script>alert(1)</script>')]]) ids.push((await ctx.as('student').upload(name, buf)).body.id)
+  assert.equal((await ctx.as('student').put(`/courses/${c.id}/assignments/${a.id}/submission`, { content: '', fileIds: ids })).status, 201)
+  const inline = (id) => ctx.as('teacher').download(`${id}?inline=1`)
+  const slides = (await ctx.as('teacher').upload('slides.pptx', docx)).body
+  await ctx.as('teacher').post(`/courses/${c.id}/resources`, { kind: 'file', title: 'Slides', fileId: slides.id })
+  const [p, i, t, d] = await Promise.all([...ids, slides.id].map(inline))
+  assert.deepEqual([p.headers['content-type'], i.headers['content-type'], t.headers['content-type']], ['application/pdf', 'image/png', 'text/plain; charset=utf-8'])
+  for (const r of [p, i, t]) assert.deepEqual([/^inline; filename=/.test(r.headers['content-disposition']), r.headers['x-content-type-options'], /default-src 'none'/.test(r.headers['content-security-policy'])], [true, 'nosniff', true])
+  assert.deepEqual(t.body, Buffer.from('# hi <script>alert(1)</script>'))
+  assert.match(d.headers['content-disposition'], /^attachment;/) // Office files never preview
+  assert.doesNotMatch(d.headers['content-security-policy'], /default-src 'none'/)
+  assert.match((await ctx.as('teacher').download(ids[0])).headers['content-disposition'], /^attachment;/) // no ?inline: still a download
+  assert.equal((await ctx.as('student2').download(`${ids[0]}?inline=1`)).status, 404) // access rules are unchanged
+})
+
 test('submission file rules: only your own unattached uploads, at most three, replaced on resubmit', async () => {
   const ctx = await setup(); const c = await classroom(ctx)
   const a = (await ctx.as('teacher').post(`/courses/${c.id}/assignments`, { title: 'Lab 1', dueAt: new Date(Date.now() + 86400000).toISOString(), maxMarks: 10 })).body

@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { FolderOpen, FileText, Link2, ExternalLink, WifiOff, NotebookPen, File as FileIcon, Download } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { PageHeader, Card, Badge, Modal, Empty, useToast } from '../../components/ui'
+import { PreviewButton } from '../../components/FilePreview'
 import { api, useRemote, downloadFile } from '../../lib/acadex'
 import { errorText, ago, fmtSize } from '../../lib/classes'
 
@@ -40,7 +41,7 @@ function CourseResources({ course }) {
               <p className="mt-2 text-xs text-gray-500">{x.teacher} · {ago(x.createdAt)}</p>
               <div className="mt-3 flex gap-2 border-t border-gray-100 pt-3">
                 {x.kind === 'note' ? (<><button className="btn-ghost" onClick={() => setOpen(x)}>Read</button><button className="btn-primary" onClick={() => addToNotes(x)}><NotebookPen size={14} /> {x.imported ? 'Open in Smart Notes' : 'Add to Smart Notes'}</button></>)
-                  : x.kind === 'file' ? <button className="btn-primary" onClick={() => downloadFile(x.file.id, x.file.name).catch((e) => toast(errorText(e)))}><Download size={14} /> Download</button>
+                  : x.kind === 'file' ? <><PreviewButton file={x.file} /><button className="btn-primary" onClick={() => downloadFile(x.file.id, x.file.name).catch((e) => toast(errorText(e)))}><Download size={14} /> Download</button></>
                   : <a className="btn-primary" href={x.url} target="_blank" rel="noreferrer noopener"><ExternalLink size={14} /> Open link</a>}
               </div>
             </Card>

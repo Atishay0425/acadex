@@ -95,6 +95,19 @@ export async function downloadFile(id, name) {
   document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 10000)
 }
 
+// Fetches an attached PDF, image or text file for showing in the page. Returns { url } (an object URL the caller
+// must revoke) or { text } for text files.
+export async function previewFile(id) {
+  const s = session.get()
+  if (!s) throw new ApiError(401, 'Not signed in')
+  const get = (token) => fetch(`${BASE}/files/${id}?inline=1`, { headers: { Authorization: `Bearer ${token}` } })
+  let res = await get(s.accessToken)
+  if (res.status === 401) { const token = await refresh(); if (token) res = await get(token) }
+  if (!res.ok) throw new ApiError(res.status, 'Could not open that file')
+  if ((res.headers.get('content-type') || '').startsWith('text/')) return { text: await res.text() }
+  return { url: URL.createObjectURL(await res.blob()) }
+}
+
 // Loads from the API. `offline` is true when there is no real session or the API is unreachable,
 // so views can show mock data with the "Demo data" badge. Real API errors (403, 500) surface in `error`.
 export function useRemote(path, deps = []) {

@@ -131,11 +131,11 @@ export function Tabs({ tabs, value, onChange }) {
   )
 }
 
-export function Modal({ open, onClose, title, children, footer }) {
+export function Modal({ open, onClose, title, children, footer, wide }) {
   if (!open) return null
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-primary-dark/40 p-4" onClick={onClose}>
-      <div className="card max-h-[90vh] w-full max-w-lg overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+      <div className={cx('card max-h-[90vh] w-full overflow-y-auto', wide ? 'max-w-4xl' : 'max-w-lg')} onClick={(e) => e.stopPropagation()}>
         <header className="flex items-center justify-between border-b border-gray-100 px-5 py-3.5">
           <h3 className="font-bold text-primary-dark">{title}</h3>
           <button onClick={onClose} className="rounded p-1 text-gray-500 hover:bg-gray-100"><X size={18} /></button>

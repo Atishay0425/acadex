@@ -2,6 +2,7 @@
 import { useRef, useState } from 'react'
 import { FileText, WifiOff, ExternalLink, Paperclip, X, Download } from 'lucide-react'
 import { PageHeader, Card, Badge, Table, Modal, Field, Empty, Tabs, useToast } from '../../components/ui'
+import { PreviewButton } from '../../components/FilePreview'
 import { api, useRemote, uploadFile, downloadFile } from '../../lib/acadex'
 import { errorText, fmtDue, fmtSize } from '../../lib/classes'
 import { myAssignments } from '../../data/mock'
@@ -65,7 +66,7 @@ export default function StudentAssignments() {
               {sel.submission.feedback && <p className="mt-1 text-gray-700">{sel.submission.feedback}</p>}
               <p className="mt-2 text-xs text-gray-500">Graded work can no longer be changed.</p>
               {sel.submission.link && <a className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-primary" href={sel.submission.link} target="_blank" rel="noreferrer noopener"><ExternalLink size={12} />Your link</a>}
-              {sel.submission.files?.map((f) => <button key={f.id} className="mt-1 flex items-center gap-1 text-xs font-semibold text-primary" onClick={() => downloadFile(f.id, f.name).catch((e) => toast(errorText(e)))}><Download size={12} />{f.name}</button>)}
+              {sel.submission.files?.map((f) => <div key={f.id} className="mt-1 flex items-center gap-3"><button className="flex items-center gap-1 text-xs font-semibold text-primary" onClick={() => downloadFile(f.id, f.name).catch((e) => toast(errorText(e)))}><Download size={12} />{f.name}</button><PreviewButton file={f} className="text-xs font-semibold text-primary" /></div>)}
             </div>
           ) : <>
             <Field label="Your answer"><textarea className="input min-h-24" value={form.content} onChange={(e) => setForm({ ...form, content: e.target.value })} /></Field>

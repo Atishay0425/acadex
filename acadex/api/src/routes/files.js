@@ -8,6 +8,8 @@ import { MAX_FILE_BYTES, cleanName, detectFile } from '../files.js'
 
 const id = z.coerce.number().int().positive()
 const MAX_FILES_PER_USER = 100, MAX_BYTES_PER_USER = 200 * 1024 * 1024
+// Types a browser can show safely. Office files are not here, they only download.
+const previewable = (mime) => /^(application\/pdf|image\/(png|jpeg|webp)|text\/)/.test(mime)
 
 // Files are uploaded on their own (the raw bytes as the body, the name in X-File-Name), then attached to a
 // submission or a class resource by id. A file can only be downloaded by people who may see what it is attached to.
@@ -47,9 +49,13 @@ export function filesRouter({ pool, config, files }) {
     if (!f || !(await canRead(req.user, f))) throw notFound('File not found')
     let data
     try { data = await files.read(f.storage_key) } catch { throw notFound('File not found') }
+    const name = `filename="${f.original_name.replace(/[^\x20-\x7e]/g, '_')}"; filename*=UTF-8''${encodeURIComponent(f.original_name)}`
+    // ?inline=1 shows a PDF, image or text file in the browser instead of saving it. Text is always sent as plain text.
+    const inline = req.query.inline === '1' && previewable(f.mime)
     res.set({
-      'Content-Type': f.mime, 'Content-Length': String(data.length), 'X-Content-Type-Options': 'nosniff', 'Cache-Control': 'private, no-store',
-      'Content-Disposition': `attachment; filename="${f.original_name.replace(/[^\x20-\x7e]/g, '_')}"; filename*=UTF-8''${encodeURIComponent(f.original_name)}`,
+      'Content-Type': inline && f.mime.startsWith('text/') ? 'text/plain; charset=utf-8' : f.mime, 'Content-Length': String(data.length), 'X-Content-Type-Options': 'nosniff', 'Cache-Control': 'private, no-store',
+      'Content-Disposition': `${inline ? 'inline' : 'attachment'}; ${name}`,
+      ...(inline ? { 'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'; img-src data:" } : {}),
     })
     res.send(data)
   }))

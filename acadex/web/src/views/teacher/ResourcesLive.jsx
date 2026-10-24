@@ -2,6 +2,7 @@
 import { useRef, useState } from 'react'
 import { NotebookPen, Plus, Trash2, WifiOff, FileText, Link2, Paperclip, File as FileIcon, Download } from 'lucide-react'
 import { PageHeader, Card, Badge, Table, Modal, Field, Empty, useToast } from '../../components/ui'
+import { PreviewButton } from '../../components/FilePreview'
 import { api, useRemote, uploadFile, downloadFile } from '../../lib/acadex'
 import { errorText, ago, fmtSize } from '../../lib/classes'
 import { ClassResources as MockResources } from './Teacher'
@@ -45,7 +46,7 @@ function ClassList({ course }) {
         {res.loading ? <Empty text="Loading…" /> : res.error ? <Empty text={res.error} /> : !res.data.length ? <Empty text="Nothing shared with this class yet." /> : (
           <Table rows={res.data} columns={[
             { key: 'title', label: 'Title', render: (r) => <span className="flex items-center gap-2 font-semibold">{r.kind === 'note' ? <FileText size={16} className="text-primary" /> : r.kind === 'file' ? <FileIcon size={16} className="text-primary" /> : <Link2 size={16} className="text-primary" />}{r.title}</span> },
-            { key: 'kind', label: 'Type', render: (r) => (r.kind === 'note' ? 'Notes' : r.kind === 'file' ? <button className="inline-flex items-center gap-1 text-primary" onClick={() => downloadFile(r.file.id, r.file.name).catch((e) => toast(errorText(e)))}><Download size={13} />{r.file.name} ({fmtSize(r.file.size)})</button> : 'Link') },
+            { key: 'kind', label: 'Type', render: (r) => (r.kind === 'note' ? 'Notes' : r.kind === 'file' ? <span className="inline-flex items-center gap-3"><button className="inline-flex items-center gap-1 text-primary" onClick={() => downloadFile(r.file.id, r.file.name).catch((e) => toast(errorText(e)))}><Download size={13} />{r.file.name} ({fmtSize(r.file.size)})</button><PreviewButton file={r.file} className="inline-flex items-center gap-1 text-primary" /></span> : 'Link') },
             { key: 'createdAt', label: 'Shared', render: (r) => ago(r.createdAt) },
             { key: 'imports', label: 'Added to Smart Notes', render: (r) => (r.kind === 'note' ? `${r.imports} of ${course.studentCount} students` : '-') },
             { key: 'a', label: '', render: (r) => <button className="rounded p-1 text-gray-500 hover:bg-gray-100" aria-label={`Remove ${r.title}`} onClick={() => remove(r)}><Trash2 size={15} /></button> },
