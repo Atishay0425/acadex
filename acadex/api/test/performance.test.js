@@ -28,3 +28,20 @@ test('/me/performance is for students and lists only their courses', async () =>
   await ctx.as('teacher2').post('/courses', { code: 'CS999', title: 'Not mine' })
   assert.equal((await ctx.as('student').get('/me/performance')).body.length, 1)
 })
+
+test('/me/trend gives running attendance per course and overall, and marks in date order', async () => {
+  const ctx = await setup(); const c = await classroom(ctx)
+  const day = (d, status) => ctx.as('teacher').post(`/courses/${c.id}/attendance`, { date: `2026-10-0${d}`, records: [{ studentId: ctx.ids.student, status }, { studentId: ctx.ids.student2, status: 'present' }] })
+  await day(1, 'present'); await day(2, 'absent'); await day(3, 'present'); await day(4, 'present')
+  const q = (await ctx.as('teacher').post(`/courses/${c.id}/assessments`, { title: 'Quiz 1', kind: 'quiz', maxMarks: 10, heldOn: '2026-10-03' })).body
+  await ctx.as('teacher').put(`/courses/${c.id}/assessments/${q.id}/marks`, { marks: [{ studentId: ctx.ids.student, score: 7 }] })
+  const t = (await ctx.as('student').get('/me/trend')).body
+  assert.deepEqual(t.courses, ['CS101'])
+  assert.deepEqual(t.attendance.map((p) => [p.date, p.overall, p.CS101]), [['2026-10-01', 100, 100], ['2026-10-02', 50, 50], ['2026-10-03', 66.7, 66.7], ['2026-10-04', 75, 75]])
+  assert.deepEqual(t.marks, [{ date: '2026-10-03', title: 'Quiz 1', code: 'CS101', pct: 70 }])
+  const other = (await ctx.as('student2').get('/me/trend')).body
+  assert.equal(other.attendance.at(-1).overall, 100) // each student sees only their own line
+  assert.equal((await ctx.as('teacher').get('/me/trend')).status, 403)
+  const empty = (await setup().then((x) => x.as('student').get('/me/trend'))).body
+  assert.deepEqual([empty.attendance, empty.marks, empty.courses], [[], [], []])
+})

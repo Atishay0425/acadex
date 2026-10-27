@@ -1,14 +1,49 @@
 'use client'
 import { useState } from 'react'
 import { LineChart as LineIcon, BellRing, LifeBuoy, Plus, Lightbulb, AlertTriangle, Send, Route, WifiOff } from 'lucide-react'
-import { LineChart, Line, BarChart, Bar, RadarChart, Radar, PolarGrid, PolarAngleAxis, Legend } from 'recharts'
-import { PageHeader, Card, Badge, Progress, Modal, Field, Table, Tabs, Stat, useToast, ChartFrame, CartesianGrid, XAxis, YAxis, Tooltip, axisProps, chartColors, riskTone, statusTone } from '../../components/ui'
+import { LineChart, Line, BarChart, Bar, RadarChart, Radar, PolarGrid, PolarAngleAxis, Legend, ReferenceLine } from 'recharts'
+import { PageHeader, Card, Badge, Empty, Progress, Modal, Field, Table, Tabs, Stat, useToast, ChartFrame, CartesianGrid, XAxis, YAxis, Tooltip, axisProps, chartColors, riskTone, statusTone } from '../../components/ui'
 import { subjects as mockSubjects, trend, alerts, tickets, departments } from '../../data/mock'
 import { useRemote } from '../../lib/acadex'
 
 /* ---------------------------------------------------------------- Performance Analyzer */
+const LINE_COLORS = [chartColors.secondary, chartColors.light, chartColors.green, chartColors.amber]
+
+// Real graphs from the API: running attendance %, attendance and marks per subject, and each graded assessment.
+function LiveCharts({ subjects, history, loading }) {
+  const bars = subjects.map((x) => ({ subject: x.code, attendance: x.attendance, marks: x.marks }))
+  const att = history?.attendance || []
+  const marks = history?.marks || []
+  const shortDate = (d) => new Date(`${d}T00:00:00Z`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', timeZone: 'UTC' })
+  return (
+    <>
+      <Card title="Attendance over time" subtitle="Running attendance % after each class day. The dashed line is the 75% minimum." className="lg:col-span-2">
+        {loading ? <Empty text="Loading…" /> : !att.length ? <Empty text="No attendance has been recorded yet. It appears here as soon as a teacher takes attendance." /> : (
+          <ChartFrame height={260}><LineChart data={att}><CartesianGrid stroke="#eef0f6" vertical={false} /><XAxis dataKey="date" tickFormatter={shortDate} {...axisProps} /><YAxis domain={[0, 100]} unit="%" {...axisProps} /><Tooltip labelFormatter={shortDate} formatter={(v) => (v == null ? '-' : `${v}%`)} /><Legend />
+            <ReferenceLine y={75} stroke={chartColors.secondary} strokeDasharray="5 5" />
+            <Line dataKey="overall" name="All subjects" stroke={chartColors.primary} strokeWidth={3} dot={{ r: 4 }} connectNulls />
+            {history.courses.map((c, i) => <Line key={c} dataKey={c} name={c} stroke={LINE_COLORS[i % LINE_COLORS.length]} strokeWidth={1.75} dot={{ r: 2.5 }} connectNulls />)}</LineChart></ChartFrame>
+        )}
+      </Card>
+      <Card title="Attendance and marks by subject">
+        {!bars.length ? <Empty text="No subjects yet." /> : (
+          <ChartFrame height={240}><BarChart data={bars}><CartesianGrid stroke="#eef0f6" vertical={false} /><XAxis dataKey="subject" {...axisProps} /><YAxis domain={[0, 100]} unit="%" {...axisProps} /><Tooltip formatter={(v) => (v == null ? 'No data yet' : `${v}%`)} /><Legend />
+            <Bar dataKey="attendance" name="Attendance %" fill={chartColors.secondary} radius={[4, 4, 0, 0]} /><Bar dataKey="marks" name="Marks %" fill={chartColors.primary} radius={[4, 4, 0, 0]} /></BarChart></ChartFrame>
+        )}
+      </Card>
+      <Card title="Marks by assessment" subtitle="Each graded quiz, test or exam">
+        {!marks.length ? <Empty text="No marks have been entered yet." /> : (
+          <ChartFrame height={240}><BarChart data={marks.map((m) => ({ ...m, label: `${m.code} ${m.title}` }))}><CartesianGrid stroke="#eef0f6" vertical={false} /><XAxis dataKey="label" interval={0} tick={{ fontSize: 10, fill: '#6b7280' }} axisLine={false} tickLine={false} /><YAxis domain={[0, 100]} unit="%" {...axisProps} /><Tooltip formatter={(v) => `${v}%`} />
+            <ReferenceLine y={60} stroke={chartColors.secondary} strokeDasharray="5 5" /><Bar dataKey="pct" name="Score %" fill={chartColors.primary} radius={[4, 4, 0, 0]} /></BarChart></ChartFrame>
+        )}
+      </Card>
+    </>
+  )
+}
+
 export function PerformanceAnalyzer() {
   const remote = useRemote('/me/performance')
+  const history = useRemote('/me/trend')
   const online = !remote.offline
   // Shape API rows like the mock subjects so one UI handles both
   const live = (remote.data || []).map((p) => ({ code: p.course.code, name: p.course.title, faculty: p.course.teacher || 'Unassigned', attendance: p.attendancePct, marks: p.marksPct, need: p.classesNeededFor75, weak: p.weak, assignments: p.assignmentsExpected ? `${p.assignmentsSubmitted}/${p.assignmentsExpected}` : '-', missing: p.assignmentsMissing }))
@@ -47,10 +82,12 @@ export function PerformanceAnalyzer() {
               <Line dataKey="marks" name="Marks %" stroke={chartColors.primary} strokeWidth={2.5} dot={{ r: 3 }} /><Line dataKey="attendance" name="Attendance %" stroke={chartColors.secondary} strokeWidth={2.5} dot={{ r: 3 }} /></LineChart></ChartFrame>
           </Card>
         )}
-        <Card title="Subject balance" className={online ? 'lg:col-span-2' : undefined}>
+        {online ? <LiveCharts subjects={subjects} history={history.data} loading={history.loading} /> : (
+        <Card title="Subject balance">
           <ChartFrame><RadarChart data={radar}><PolarGrid stroke="#e5e7eb" /><PolarAngleAxis dataKey="subject" tick={{ fontSize: 11 }} /><Tooltip />
             <Radar dataKey="marks" name="Marks" stroke={chartColors.primary} fill={chartColors.primary} fillOpacity={0.25} /><Radar dataKey="attendance" name="Attendance" stroke={chartColors.secondary} fill={chartColors.secondary} fillOpacity={0.15} /><Legend /></RadarChart></ChartFrame>
         </Card>
+        )}
       </div>
       <div className="grid gap-5 lg:grid-cols-3">
         <Card className="lg:col-span-2" title="Subject-wise breakdown" pad={false}>
