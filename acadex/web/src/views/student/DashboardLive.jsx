@@ -19,10 +19,12 @@ export default function DashboardLive() {
   const sched = useRemote(`/planner/schedule?today=${base}&days=1`)
   const asg = useRemote('/me/assignments')
 
-  if (perf.offline) return <><div className="mb-3"><Badge tone="amber"><WifiOff size={12} className="mr-1" />Demo data · API offline</Badge></div><MockDashboard /></>
+  // Hooks first: returning before them breaks React when the API is offline.
   const user = useSessionUser()
   const [hour, setHour] = useState(null)
   useEffect(() => setHour(new Date().getHours()), [])
+
+  if (perf.offline) return <><div className="mb-3"><Badge tone="amber"><WifiOff size={12} className="mr-1" />Demo data · API offline</Badge></div><MockDashboard /></>
   const courses = perf.data || []
   const att = avg(courses.map((c) => c.attendancePct)), marks = avg(courses.map((c) => c.marksPct))
   const mine = (doubts.data || []).filter((d) => d.isMine)
