@@ -19,8 +19,9 @@ export default function DashboardLive() {
     Promise.all(courses.data.map((c) => api(`/risk/courses/${c.id}`).then((rows) => rows.map((r) => ({ ...r, course: c.code }))).catch(() => []))).then((x) => setBoards(x.flat()))
   }, [courses.data])
 
-  if (courses.offline) return <><div className="mb-3"><Badge tone="amber"><WifiOff size={12} className="mr-1" />Demo data · API offline</Badge></div><MockDashboard /></>
   const user = useSessionUser()
+  // Every hook above must run before this return, so the hook count never changes when the page flips to offline.
+  if (courses.offline) return <><div className="mb-3"><Badge tone="amber"><WifiOff size={12} className="mr-1" />Demo data · API offline</Badge></div><MockDashboard /></>
   const list = courses.data || []
   const students = list.reduce((a, c) => a + c.studentCount, 0)
   const dist = ['Low', 'Medium', 'High'].map((name) => ({ name, value: (boards || []).filter((s) => s.level === name.toLowerCase()).length }))
