@@ -14,7 +14,7 @@ export default function UsageLive() {
   return (
     <>
       <PageHeader icon={BarChart3} title="Module usage" subtitle="Are students returning? Share of students who used each Acadex module in the chosen period"
-        actions={<select className="input w-40" value={days} onChange={(e) => setDays(Number(e.target.value))}><option value={7}>Last 7 days</option><option value={30}>Last 30 days</option><option value={90}>Last 90 days</option></select>} />
+        actions={<select aria-label="Time period" className="input w-40" value={days} onChange={(e) => setDays(Number(e.target.value))}><option value={7}>Last 7 days</option><option value={30}>Last 30 days</option><option value={90}>Last 90 days</option></select>} />
       {u.loading || !d ? <Card><Empty text={u.error || 'Loading…'} /></Card> : (<>
         <div className="mb-5 grid gap-4 sm:grid-cols-3">
           <Stat label="Students" value={d.students} hint="Active accounts" icon={BarChart3} />

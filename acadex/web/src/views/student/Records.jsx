@@ -19,7 +19,7 @@ export default function StudentRecords() {
         actions={<>
           {perf.offline && <Badge tone="amber"><WifiOff size={12} className="mr-1" />Demo data · API offline</Badge>}
           {list.length > 1 && (
-            <select className="input w-auto" value={course.course.id} onChange={(e) => setCourseId(Number(e.target.value))}>
+            <select aria-label="Course" className="input w-auto" value={course.course.id} onChange={(e) => setCourseId(Number(e.target.value))}>
               {list.map((p) => <option key={p.course.id} value={p.course.id}>{p.course.code} · {p.course.title}</option>)}
             </select>
           )}

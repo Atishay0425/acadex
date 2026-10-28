@@ -18,7 +18,7 @@ export default function Risk() {
     <>
       <PageHeader icon={ShieldAlert} title="Early Warning" subtitle="Risk scores with the reasons behind them. Take an action and track whether it helped."
         actions={list.length > 1 && (
-          <select className="input w-auto" value={course.id} onChange={(e) => setCourseId(Number(e.target.value))}>{list.map((c) => <option key={c.id} value={c.id}>{c.code} · {c.title}</option>)}</select>
+          <select aria-label="Class" className="input w-auto" value={course.id} onChange={(e) => setCourseId(Number(e.target.value))}>{list.map((c) => <option key={c.id} value={c.id}>{c.code} · {c.title}</option>)}</select>
         )} />
       {courses.loading ? <Card><Empty text="Loading…" /></Card> : !course ? <Card><Empty text="You are not teaching any class yet." /></Card> : <ClassRisk key={course.id} course={course} />}
     </>

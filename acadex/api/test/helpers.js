@@ -7,7 +7,7 @@ import { createApp } from '../src/app.js'
 import { migrate } from '../src/db/migrate.js'
 import { createMemoryStore } from '../src/files.js'
 
-const config = { jwtSecret: 'test-secret', accessTtl: '15m', refreshDays: 7, corsOrigins: ['http://localhost:3000'], rateLimit: false, flagHideThreshold: 2, webUrl: 'http://localhost:3000' }
+const config = { jwtSecret: 'test-secret', accessTtl: '12h' /* tests log in once per test; a slow or busy machine must not expire the token mid-test */, refreshDays: 7, corsOrigins: ['http://localhost:3000'], rateLimit: false, flagHideThreshold: 2, webUrl: 'http://localhost:3000' }
 
 // With TEST_DATABASE_URL set, tests run on a real PostgreSQL, each in its own throwaway schema. Otherwise they
 // run on the in-memory pg-mem emulator, which needs no server.

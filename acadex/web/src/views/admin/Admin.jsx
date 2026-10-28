@@ -17,7 +17,7 @@ export function AdminDashboard() {
   return (
     <>
       <PageHeader title="Analytics dashboard" subtitle="Campus-wide engagement, risk, support and model health · Updated 2 minutes ago"
-        actions={<><select className="input w-40"><option>Last 7 days</option><option>Last 30 days</option><option>This semester</option></select><button className="btn-ghost"><RefreshCw size={15} /> Refresh</button></>} />
+        actions={<><select aria-label="Time period" className="input w-40"><option>Last 7 days</option><option>Last 30 days</option><option>This semester</option></select><button className="btn-ghost"><RefreshCw size={15} /> Refresh</button></>} />
       <div className="mb-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <Stat label="Daily active students" value="1,310" hint="of 1,820 enrolled" icon={Users} trend="+8.4% vs last week" />
         <Stat label="At-risk students" value="27" hint="High risk · 5 new" icon={ShieldAlert} tone="secondary" trend="+3 this week" />

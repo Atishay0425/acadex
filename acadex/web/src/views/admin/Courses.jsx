@@ -40,7 +40,7 @@ export default function AdminCourses() {
             { key: 'code', label: 'Code', render: (c) => <span className="font-bold text-primary-dark">{c.code}</span> },
             { key: 'title', label: 'Course' },
             { key: 'teacher', label: 'Faculty', render: (c) => offline ? c.teacher?.name : (
-              <select className="input py-1" value={c.teacher?.id ?? ''} onChange={(e) => assign(c, e.target.value)}>
+              <select aria-label={`Faculty for ${c.code}`} className="input py-1" value={c.teacher?.id ?? ''} onChange={(e) => assign(c, e.target.value)}>
                 <option value="">Unassigned</option>
                 {(teachers.data || []).map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
               </select>) },

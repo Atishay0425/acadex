@@ -2,16 +2,19 @@
 import { useState } from 'react'
 import { HeartPulse, Plus, Trash2, EyeOff } from 'lucide-react'
 import { PageHeader, Card, Badge, Empty, Field, useToast } from '../../components/ui'
-import { api, useRemote } from '../../lib/acadex'
+import { api, useRemote, useSessionUser } from '../../lib/acadex'
 import { errorText, fmtSlot, inDays, toIso, SESSION_TONE } from '../../lib/classes'
 
 export default function CounsellorDesk() {
   const [toast, node] = useToast()
-  const sessions = useRemote('/counselling/sessions')
-  const slots = useRemote('/counselling/slots')
+  const user = useSessionUser()
+  const allowed = user?.isCounsellor // false until an admin flags this teacher; no request is made before then
+  const sessions = useRemote(allowed ? '/counselling/sessions' : null)
+  const slots = useRemote(allowed ? '/counselling/slots' : null)
   const [when, setWhen] = useState(inDays(1))
   const [draft, setDraft] = useState({})
 
+  if (user && !allowed) return <><PageHeader icon={HeartPulse} title="Counselling" subtitle="Your availability and the sessions students have booked with you" /><Card><Empty text="You are not set up as a counsellor. Ask an admin to enable it for your account under Users & roles." /></Card></>
   if (sessions.offline) return <Card><Empty text="The counsellor desk needs the API. Start it and sign in again." /></Card>
   const reload = () => { sessions.reload(); slots.reload() }
   const addSlot = async () => { try { await api('/counselling/slots', { method: 'POST', body: { slots: [toIso(when)] } }); toast('Slot added'); reload() } catch (e) { toast(errorText(e)) } }

@@ -120,7 +120,7 @@ export function ClassPerformance() {
     <>
       <PageHeader icon={BarChart3} title="Class Performance" subtitle={course ? `${course.code} · ${course.title}` : 'Attendance and marks for your classes'}
         actions={list.length > 1 && (
-          <select className="input w-auto" value={course.id} onChange={(e) => setCourseId(Number(e.target.value))}>
+          <select aria-label="Class" className="input w-auto" value={course.id} onChange={(e) => setCourseId(Number(e.target.value))}>
             {list.map((c) => <option key={c.id} value={c.id}>{c.code} · {c.title}</option>)}
           </select>
         )} />

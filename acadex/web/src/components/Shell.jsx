@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { signOut } from '../lib/auth'
-import { session } from '../lib/acadex'
+import { api, session } from '../lib/acadex'
 import {
   LayoutDashboard, MessageCircleQuestion, NotebookPen, CalendarCheck, LineChart, BellRing, HeartHandshake,
   Compass, Users, MessagesSquare, Lightbulb, LifeBuoy, GraduationCap, Search, Menu, LogOut, ChevronDown,
@@ -92,7 +92,12 @@ export default function Shell({ role, children }) {
   const pathname = usePathname()
   // The signed-in person when the API login was used; the demo user otherwise.
   const [real, setReal] = useState(null)
-  useEffect(() => { setReal(session.get()?.user ?? null) }, [])
+  useEffect(() => {
+    setReal(session.get()?.user ?? null)
+    // Pick up changes an admin made since sign-in (name, role, counsellor flag) without a new login.
+    const s = session.get()
+    if (s) api('/auth/me').then((u) => { session.set({ ...s, ...(session.get() ?? {}), user: u }); setReal(u) }).catch(() => {})
+  }, [])
   const user = real ? { name: real.name, id: real.email } : me[role]
   const base = `/${role}`
 
@@ -100,7 +105,7 @@ export default function Shell({ role, children }) {
     <div className="flex h-full flex-col">
       {/* Top bar (Azure-style command bar) */}
       <header className="z-30 flex h-12 shrink-0 items-center gap-3 bg-primary-dark px-3 text-white">
-        <button className="rounded p-1.5 hover:bg-white/10 lg:hidden" onClick={() => setOpen(!open)}><Menu size={20} /></button>
+        <button className="rounded p-1.5 hover:bg-white/10 lg:hidden" aria-label="Open menu" aria-expanded={open} onClick={() => setOpen(!open)}><Menu size={20} /></button>
         <div className="flex items-center gap-2 font-bold">
           <span className="flex h-7 w-7 items-center justify-center rounded-md bg-secondary"><GraduationCap size={17} /></span>
           <span className="hidden sm:inline">Acadex</span>
@@ -144,7 +149,7 @@ export default function Shell({ role, children }) {
           'absolute inset-y-12 left-0 z-20 w-64 shrink-0 overflow-y-auto border-r border-gray-200 bg-white px-3 py-4 transition-transform lg:static lg:translate-x-0',
           open ? 'translate-x-0' : '-translate-x-full',
         )}>
-          {NAV[role].map((g, i) => (
+          {NAV[role].map((g) => ({ ...g, items: g.items.filter((it) => !(role === 'teacher' && it.to === 'counselling' && real && !real.isCounsellor)) })).map((g, i) => (
             <div key={i} className="mb-3">
               {g.group && <p className="px-3 pb-1 pt-2 text-[11px] font-bold uppercase tracking-wider text-gray-400">{g.group}</p>}
               {g.items.map((it) => (

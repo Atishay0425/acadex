@@ -16,7 +16,7 @@ export default function ResourcesLive() {
   return (
     <>
       <PageHeader icon={NotebookPen} title="Class Resources" subtitle="Share notes and links with a class. Students can add shared notes to Smart Notes for summaries, questions and a quiz."
-        actions={list.length > 1 && <select className="input w-auto" value={course.id} onChange={(e) => setCourseId(Number(e.target.value))}>{list.map((c) => <option key={c.id} value={c.id}>{c.code} · {c.title}</option>)}</select>} />
+        actions={list.length > 1 && <select aria-label="Class" className="input w-auto" value={course.id} onChange={(e) => setCourseId(Number(e.target.value))}>{list.map((c) => <option key={c.id} value={c.id}>{c.code} · {c.title}</option>)}</select>} />
       {courses.loading ? <Card><Empty text="Loading…" /></Card> : !course ? <Card><Empty text="You are not teaching any class yet." /></Card> : <ClassList key={course.id} course={course} />}
     </>
   )

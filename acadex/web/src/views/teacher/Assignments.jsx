@@ -20,7 +20,7 @@ export default function TeacherAssignments() {
         actions={<>
           {courses.offline && <Badge tone="amber"><WifiOff size={12} className="mr-1" />Demo data · API offline</Badge>}
           {list.length > 1 && (
-            <select className="input w-auto" value={course?.id} onChange={(e) => setCourseId(Number(e.target.value))}>
+            <select aria-label="Class" className="input w-auto" value={course?.id} onChange={(e) => setCourseId(Number(e.target.value))}>
               {list.map((c) => <option key={c.id} value={c.id}>{c.code} · {c.title}</option>)}
             </select>
           )}

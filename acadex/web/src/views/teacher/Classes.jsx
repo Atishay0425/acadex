@@ -69,7 +69,7 @@ function RosterModal({ course, onClose, toast }) {
   return (
     <Modal open onClose={onClose} title={`${course.code} roster`} footer={<button className="btn-ghost" onClick={onClose}>Done</button>}>
       <div className="mb-4 flex gap-2">
-        <select className="input" value={pick} onChange={(e) => setPick(e.target.value)} disabled={!candidates.length}>
+        <select aria-label="Student to add" className="input" value={pick} onChange={(e) => setPick(e.target.value)} disabled={!candidates.length}>
           {candidates.length ? candidates.map((u) => <option key={u.id} value={u.id}>{u.name} ({u.email})</option>) : <option>No more students to add</option>}
         </select>
         <button className="btn-primary" disabled={!candidates.length} onClick={add}>Add</button>

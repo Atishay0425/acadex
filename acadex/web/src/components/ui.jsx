@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { cloneElement, isValidElement, useId, useState } from 'react'
 import { X } from 'lucide-react'
 import {
   ResponsiveContainer, CartesianGrid, XAxis, YAxis, Tooltip, Legend,
@@ -147,11 +147,15 @@ export function Modal({ open, onClose, title, children, footer, wide }) {
   )
 }
 
+// The label is tied to the control (htmlFor/id) when the field wraps a single input, select or textarea, so screen
+// readers announce it and clicking the label focuses the control.
 export function Field({ label, children }) {
+  const id = useId()
+  const single = isValidElement(children) && ['input', 'select', 'textarea'].includes(children.type)
   return (
     <div className="mb-3">
-      <label className="label">{label}</label>
-      {children}
+      <label className="label" htmlFor={single ? children.props.id ?? id : undefined}>{label}</label>
+      {single ? cloneElement(children, { id: children.props.id ?? id }) : children}
     </div>
   )
 }

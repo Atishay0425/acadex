@@ -116,7 +116,7 @@ export default function Community() {
               <input className="input mb-2" placeholder="Title" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
               <textarea className="input mb-2 min-h-20" placeholder="Share notes, ask a question or announce an event…" value={form.content} onChange={(e) => setForm({ ...form, content: e.target.value })} />
               <div className="flex flex-wrap items-center gap-2">
-                <select className="input w-36" value={form.kind} onChange={(e) => setForm({ ...form, kind: e.target.value })}>{KINDS.map((k) => <option key={k} value={k}>{kindLabel(k)}</option>)}</select>
+                <select aria-label="Post type" className="input w-36" value={form.kind} onChange={(e) => setForm({ ...form, kind: e.target.value })}>{KINDS.map((k) => <option key={k} value={k}>{kindLabel(k)}</option>)}</select>
                 <input className="input w-48" placeholder="Tags: SVM, PCA" value={form.tags} onChange={(e) => setForm({ ...form, tags: e.target.value })} />
                 <label className="flex items-center gap-1.5 text-xs font-semibold text-gray-600"><input type="checkbox" checked={form.isAnonymous} onChange={(e) => setForm({ ...form, isAnonymous: e.target.checked })} /> Post anonymously</label>
                 <button className="btn-primary ml-auto" onClick={create}>Post</button>
@@ -126,8 +126,8 @@ export default function Community() {
 
           <div className="flex flex-wrap items-center gap-2">
             <div className="relative min-w-[200px] flex-1"><Search size={15} className="absolute left-3 top-2.5 text-gray-400" /><input className="input pl-9" placeholder="Search this room…" value={q} onChange={(e) => setQ(e.target.value)} /></div>
-            <select className="input w-36" value={kind} onChange={(e) => setKind(e.target.value)}><option value="">All types</option>{KINDS.map((k) => <option key={k} value={k}>{kindLabel(k)}</option>)}</select>
-            <select className="input w-40" value={sort} onChange={(e) => setSort(e.target.value)}><option value="new">Newest</option><option value="score">Top voted</option><option value="answers">Most answered</option></select>
+            <select aria-label="Filter by type" className="input w-36" value={kind} onChange={(e) => setKind(e.target.value)}><option value="">All types</option>{KINDS.map((k) => <option key={k} value={k}>{kindLabel(k)}</option>)}</select>
+            <select aria-label="Sort posts" className="input w-40" value={sort} onChange={(e) => setSort(e.target.value)}><option value="new">Newest</option><option value="score">Top voted</option><option value="answers">Most answered</option></select>
           </div>
 
           {loading && <Empty text="Loading…" />}
@@ -136,9 +136,9 @@ export default function Community() {
             <article key={p.id} className="card p-4">
               <div className="flex gap-3">
                 <div className="flex w-10 shrink-0 flex-col items-center text-xs font-bold text-gray-500">
-                  <button onClick={() => vote(p, 'up')} className={cx('rounded p-1 hover:bg-primary-50', p.myVote === 'up' && 'text-primary')}><ThumbsUp size={16} /></button>
+                  <button aria-label="Upvote post" onClick={() => vote(p, 'up')} className={cx('rounded p-1 hover:bg-primary-50', p.myVote === 'up' && 'text-primary')}><ThumbsUp size={16} /></button>
                   <span className="text-sm text-primary-dark">{p.score}</span>
-                  <button onClick={() => vote(p, 'down')} className={cx('rounded p-1 hover:bg-secondary-50', p.myVote === 'down' && 'text-secondary')}><ThumbsDown size={16} /></button>
+                  <button aria-label="Downvote post" onClick={() => vote(p, 'down')} className={cx('rounded p-1 hover:bg-secondary-50', p.myVote === 'down' && 'text-secondary')}><ThumbsDown size={16} /></button>
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2 text-sm">
@@ -161,8 +161,8 @@ export default function Community() {
                       {open.answers?.map((a) => (
                         <div key={a.id} className={cx('mb-3 flex gap-3 rounded-lg p-3', a.isAccepted ? 'bg-emerald-50' : 'bg-gray-50')}>
                           <div className="flex w-8 flex-col items-center text-xs font-bold">
-                            <button onClick={() => vote(a, 'up', 'answers')} className={cx(a.myVote === 'up' && 'text-primary')}><ThumbsUp size={14} /></button>{a.score}
-                            <button onClick={() => vote(a, 'down', 'answers')} className={cx(a.myVote === 'down' && 'text-secondary')}><ThumbsDown size={14} /></button>
+                            <button aria-label="Upvote answer" onClick={() => vote(a, 'up', 'answers')} className={cx(a.myVote === 'up' && 'text-primary')}><ThumbsUp size={14} /></button>{a.score}
+                            <button aria-label="Downvote answer" onClick={() => vote(a, 'down', 'answers')} className={cx(a.myVote === 'down' && 'text-secondary')}><ThumbsDown size={14} /></button>
                           </div>
                           <div className="flex-1 text-sm">
                             <p className="mb-1 flex flex-wrap items-center gap-2 text-xs"><b>{a.author.name}</b>

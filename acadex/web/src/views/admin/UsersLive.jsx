@@ -29,7 +29,7 @@ export default function UsersLive() {
         actions={<button className="btn-primary" onClick={() => setOpen(true)}><Plus size={16} /> Add user</button>} />
       <div className="mb-4 flex flex-wrap gap-3">
         <input className="input max-w-xs" placeholder="Search name or email…" value={q} onChange={(e) => setQ(e.target.value)} />
-        <select className="input w-40" value={role} onChange={(e) => setRole(e.target.value)}><option value="">All roles</option>{ROLES.map((r) => <option key={r} value={r}>{r[0].toUpperCase() + r.slice(1)}s</option>)}</select>
+        <select aria-label="Filter by role" className="input w-40" value={role} onChange={(e) => setRole(e.target.value)}><option value="">All roles</option>{ROLES.map((r) => <option key={r} value={r}>{r[0].toUpperCase() + r.slice(1)}s</option>)}</select>
       </div>
       <Card pad={false}>
         {users.loading ? <Empty text="Loading…" /> : users.error ? <Empty text={users.error} /> : !users.data.length ? <Empty text="No users match." /> : (

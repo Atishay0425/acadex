@@ -16,7 +16,7 @@ export default function Resources() {
   return (
     <>
       <PageHeader icon={FolderOpen} title="Class Resources" subtitle="Notes and links your teachers shared. Add a note to Smart Notes to get a summary, questions and a quiz."
-        actions={list.length > 1 && <select className="input w-auto" value={course.id} onChange={(e) => setCourseId(Number(e.target.value))}>{list.map((c) => <option key={c.id} value={c.id}>{c.code} · {c.title}</option>)}</select>} />
+        actions={list.length > 1 && <select aria-label="Course" className="input w-auto" value={course.id} onChange={(e) => setCourseId(Number(e.target.value))}>{list.map((c) => <option key={c.id} value={c.id}>{c.code} · {c.title}</option>)}</select>} />
       {courses.loading ? <Card><Empty text="Loading…" /></Card> : !course ? <Card><Empty text="Enrol in a course to see its resources." /></Card> : <CourseResources key={course.id} course={course} />}
     </>
   )
